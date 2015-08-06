@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-class MdChannel :
+class Md :
 	'''
 	Md通讯管道类,该类通过和CTPConverter的Md(行情)进程通讯,实线行情数据的传送
 	'''
@@ -100,13 +100,13 @@ class MdChannel :
 
 
 	def __enter__(self):
-		''' 让MdChannel可以使用with语句 '''
+		''' 让Md可以使用with语句 '''
 		#print '__enter__():被调用'
 		return self
 
 
 	def __exit__(self, type, value, tb):
-		''' 让MdChannel可以使用with语句 '''
+		''' 让Md可以使用with语句 '''
 		#print '__exit__():被调用',type,value,tb
 		pass
 

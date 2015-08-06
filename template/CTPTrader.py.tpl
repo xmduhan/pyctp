@@ -6,7 +6,6 @@ import uuid
 import tempfile
 import subprocess
 from CTPStruct import *
-from message import *
 from time import sleep
 from datetime import datetime,timedelta
 
@@ -38,7 +37,7 @@ def mallocIpcAddress():
 
 
 
-class TraderChannel :
+class Trader :
 	'''
 	Trader通讯管道类,该类通过和CTPConverter的Trader进程通讯,对外实现python语言封装的CTP接口,
 	在设计上该类既支持同步接口也支持异步接口,但是目前暂时先实现同步接口.
@@ -149,13 +148,13 @@ class TraderChannel :
 
 
 	def __enter__(self):
-		''' 让TraderChannel可以使用with语句 '''
+		''' 让Trader可以使用with语句 '''
 		#print '__enter__():被调用'
 		return self
 
 
 	def __exit__(self, type, value, tb):
-		''' 让TraderChannel可以使用with语句 '''
+		''' 让Trader可以使用with语句 '''
 		#print '__exit__():被调用',type,value,tb
 		pass
 

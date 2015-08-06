@@ -2,7 +2,7 @@
 all : generate
 
 
-generate: CTPStruct.py CTPTrader.py CTPMd.py __init__.py
+generate: CTPStruct.py CTPTrader.py CTPMd.py CTPCallback.py
 
 
 CTPStruct.py : template/CTPStruct.py.tpl
@@ -17,8 +17,8 @@ CTPMd.py : template/CTPMd.py.tpl
 	python generate.py CTPMd.py.tpl
 
 
-__init__.py : template/__init__.py.tpl
-	python generate.py __init__.py.tpl
+CTPCallback.py : template/CTPCallback.py.tpl
+	python generate.py CTPCallback.py.tpl
 
 
 clean :

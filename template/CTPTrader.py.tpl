@@ -189,7 +189,7 @@ class TraderChannel :
 
 	{# 交易结果确认方法 #}
 	{% set method = reqMethodDict['ReqSettlementInfoConfirm'] %}
-	{% include 'ReqRespMethod.tpl' %}
+	{% include 'ReqMethod.tpl' %}
 
 
 	{% set method = reqMethodDict['ReqOrderInsert'] %}
@@ -357,6 +357,6 @@ class TraderChannel :
 {# 所有查询api的实现 #}
 {% for method in reqMethodDict.itervalues() %}
 {% if method['name'][3:6] == 'Qry' or method['name'][3:8] == 'Query' %}
-	{% include 'ReqRespMethod.tpl' %}
+	{% include 'ReqMethod.tpl' %}
 {% endif %}
 {% endfor %}

@@ -126,6 +126,11 @@ class Trader :
         publish.setsockopt_string(zmq.SUBSCRIBE,u'')
         self.publish = publish
 
+        # 回调数据链
+        self._callbackDict = {}
+        self._callbackUuidDict = {}
+
+
 
     def __enter__(self):
         ''' 让Trader可以使用with语句 '''
@@ -145,6 +150,45 @@ class Trader :
         1.结束ctp转换器进程
         '''
         self.__delTraderProcess()
+
+
+    def bind(callbackName,funcToCall):
+        '''
+        绑定回调函数
+        参数:
+        callbackName  回调函数名称，具体可用项在pyctp.callback模块中定义
+        funcToCall  需要绑定的回调函数，可以是函数也可以是实例方法
+        回调方法必须定义成以下结构:
+        def funcToCall(**kargs)
+        返回值:
+        如果绑定成功方法返回一个bindId,这个id可以用于解除绑定(unbind)时使用
+        '''
+        pass
+
+
+    def unbind(bindId):
+        '''
+        解除回调函数的绑定
+        参数:
+        bindId 绑定回调函数时的返回值
+        返回值:
+        成功返回True，失败(或没有找到绑定项)返回False
+        '''
+        pass
+
+
+    def _callback(callbackName,args):
+        '''
+        根据回调链调用已经绑定的所有回调函数，该函数主要提供给监听简称使用
+        参数:
+        callbackName  回调函数名称
+        args 用于传递给回调函数的参数
+        返回值:
+        无
+        '''
+        pass
+
+
 
 
 {# 所有api的实现 #}

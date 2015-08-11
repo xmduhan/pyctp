@@ -152,7 +152,7 @@ class Trader :
         self.__delTraderProcess()
 
 
-    def bind(callbackName,funcToCall):
+    def bind(self,callbackName,funcToCall):
         '''
         绑定回调函数
         参数:
@@ -173,9 +173,10 @@ class Trader :
             self._callbackDict[callbackName].append(callbackUuid)
         else:
             self._callbackDict[callbackName] = [callbackUuid]
+        return callbackUuid
 
 
-    def unbind(bindId):
+    def unbind(self,bindId):
         '''
         解除回调函数的绑定
         参数:
@@ -192,7 +193,7 @@ class Trader :
         return True
 
 
-    def _callback(callbackName,args):
+    def _callback(self,callbackName,args):
         '''
         根据回调链调用已经绑定的所有回调函数，该函数主要提供给监听简称使用
         参数:

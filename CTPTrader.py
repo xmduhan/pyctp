@@ -163,7 +163,16 @@ class Trader :
         返回值:
         如果绑定成功方法返回一个bindId,这个id可以用于解除绑定(unbind)时使用
         '''
-        pass
+        # TODO: 该函数需要做线程互斥处理
+        callbackUuid = uuid.uuid1()
+        self._callbackUuidDict[callbackUuid] = {
+            'callbackName':callbackName,
+            'funcToCall' : funcToCall
+        }
+        if callbackName in self._callbackDict.keys():
+            self._callbackDict[callbackName].append(callbackUuid)
+        else:
+            self._callbackDict[callbackName] = [callbackUuid]
 
 
     def unbind(bindId):
@@ -174,7 +183,13 @@ class Trader :
         返回值:
         成功返回True，失败(或没有找到绑定项)返回False
         '''
-        pass
+        # TODO: 该函数需要做线程互斥处理
+        if bindId not in self._callbackUuidDict.keys():
+            return False
+        callbackName = self._callbackUuidDict[bindId]['callbackName']
+        self._callbackDict[callbackName].remove(bindId)
+        self._callbackUuidDict.pop(bindId)
+        return True
 
 
     def _callback(callbackName,args):
@@ -182,13 +197,19 @@ class Trader :
         根据回调链调用已经绑定的所有回调函数，该函数主要提供给监听简称使用
         参数:
         callbackName  回调函数名称
-        args 用于传递给回调函数的参数
+        args 用于传递给回调函数的参数(字典结构)
         返回值:
         无
         '''
-        pass
-
-
+        # TODO: 该函数需要做线程互斥处理
+        if callbackName not in self._callbackDict.keys():
+            return
+        for callbackUuid in self._callbackDict[callbackName]:
+            funcToCall = self._callbackUuidDict[callbackUuid]['funcToCall']
+            try:
+                funcToCall(**args)
+            except Exception as e:
+                print e
 
 
 

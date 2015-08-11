@@ -29,7 +29,6 @@ def mallocIpcAddress():
 class Trader :
     '''
     Trader通讯管道类,该类通过和CTPConverter的Trader进程通讯,对外实现python语言封装的CTP接口,
-    在设计上该类既支持同步接口也支持异步接口,但是目前暂时先实现同步接口.
     '''
 
     def __testChannel(self):

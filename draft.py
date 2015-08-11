@@ -35,5 +35,26 @@ data = struct.CThostFtdcTradingAccountField()
 trader.ReqQryTradingAccount(data)
 
 #%%
+import os
+from datetime import datetime
+os.chdir(u'/home/duhan/github/pyctp')
+from CTPStruct import *
+from CTPTrader import Trader
+
+frontAddress = os.environ.get('CTP_FRONT_ADDRESS')
+assert frontAddress
+brokerID = os.environ.get('CTP_BROKER_ID')
+assert brokerID
+userID = os.environ.get('CTP_USER_ID')
+assert userID
+password = os.environ.get('CTP_PASSWORD')
+assert password
+
+#%%
+trader = Trader(frontAddress,brokerID,userID,password)
+
+
+
+#%%
 
 

@@ -54,7 +54,7 @@ class Trader :
 
 
     def __init__(self,frontAddress,brokerID,userID,password,
-        queryInterval=1,timeout=10,converterQueryInterval=None):
+        timeout=10,converterQueryInterval=1):
         '''
         初始化过程:
         1.创建ctp转换器进程
@@ -68,31 +68,22 @@ class Trader :
         password   密码
         queryInterval  查询间隔时间(单位:秒)
         timeout 等待响应时间(单位:秒)
-        converterQueryInterval 转换器的流量控制时间间隔(单位:秒),如果为None默认取queryInterval
+        converterQueryInterval 转换器的流量控制时间间隔(单位:秒),默认为1
         '''
         # 创建临时工作目录
         self.workdir = tempfile.mkdtemp()
-
-        # 设置上次查询时间
-        self.queryInterval = queryInterval
-        # NOTE:虽然这里之前没有ctp query请求,仍然要预留等待时间,是由于启动转化器进程是需要时
-        # 间的,转化器此时还无法响应请求,而初始化过程马上就发出一个查询请,以测试通道是否通畅,
-        # 该请求会在zmq队列中排队,排队时间也是计时的.而ctp流量控制计算的是发向服务器的时间,
-        # 是不是送到zmq消息队列的时间.所以这里要考虑ctp trader转换器的时间这里暂定为1秒
-        traderProcessStartupTime = 1.5
-        self.lastQueryTime = datetime.now() - timedelta(seconds=queryInterval)
-        self.lastQueryTime +=  timedelta(seconds=traderProcessStartupTime)
-
-        self.queryIntervalMillisecond = int(queryInterval * 1000)
-        if converterQueryInterval == None :
-            converterQueryInterval = queryInterval
-        self.converterQueryIntervalMillisecond = int(converterQueryInterval * 1000)
 
         # 为ctp转换器分配通讯管道地址
         self.requestPipe = mallocIpcAddress()
         self.responsePipe = mallocIpcAddress()
         self.pushbackPipe = mallocIpcAddress()
         self.publishPipe = mallocIpcAddress()
+
+        # 设置等待超时时间
+        self.timeoutMillisecond = 1000 * timeout
+
+        # 设置转化器查询请求间隔
+        self.converterQueryIntervalMillisecond = converterQueryInterval * 1000
 
 		# 构造调用命令
         commandLine = ['trader',
@@ -111,14 +102,11 @@ class Trader :
 		# 创建转换器子进程
         fileOutput = os.path.join(self.workdir,'trader.log')
         traderStdout = open(fileOutput, 'w')
-        #self.traderProcess = subprocess.Popen(commandLine,stdout=traderStdout)
-        print 'self.workdir =',self.workdir
         self.traderProcess = subprocess.Popen(commandLine,stdout=traderStdout,cwd=self.workdir)
 
 		# 创建zmq通讯环境
         context = zmq.Context()
         self.context = context
-        self.timeoutMillisecond = 1000 * timeout
 
 		# 创建请求通讯通道
         request = context.socket(zmq.DEALER)
@@ -138,12 +126,6 @@ class Trader :
         publish.setsockopt_string(zmq.SUBSCRIBE,u'')
         self.publish = publish
 
-        # 检查ctp通道是否建立，如果失败抛出异常
-        # if not self.__testChannel():
-            # self.__delTraderProcess()
-            # raise Exception('无法建立ctp连接,具体错误请查看ctp转换器的日志信息')
-            # #raise Exception('''can't not connect to ctp server.''')
-
 
     def __enter__(self):
         ''' 让Trader可以使用with语句 '''
@@ -159,7 +141,7 @@ class Trader :
 
     def __del__(self):
         '''
-        对象移出过程
+        对象移除过程
         1.结束ctp转换器进程
         '''
         self.__delTraderProcess()

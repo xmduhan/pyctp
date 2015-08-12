@@ -79,6 +79,7 @@ class Trader :
         self.responsePipe = mallocIpcAddress()
         self.pushbackPipe = mallocIpcAddress()
         self.publishPipe = mallocIpcAddress()
+        self.threadControlPipe = mallocIpcAddress()
 
         # 设置等待超时时间
         self.timeoutMillisecond = 1000 * timeout
@@ -126,6 +127,14 @@ class Trader :
         publish.connect(self.publishPipe)
         publish.setsockopt_string(zmq.SUBSCRIBE,u'')
         self.publish = publish
+
+        # 创建线程控制通讯管道
+        threadRequest = context.socket(zmq.DEALER)
+        threadRequest.connect(self.threadControlPipe)
+        self.threadRequest = threadRequest
+        threadResponse = context.socket(zmq.ROUTER)
+        threadResponse.bind(self.threadControlPipe)
+        self.threadResponse = threadResponse
 
         # 回调数据链
         self._callbackDict = {}
@@ -224,11 +233,38 @@ class Trader :
             self._callbackLock.release()
 
 
-    def _thread_function(self, arg):
+    def _threadFunction(self, arg):
         """
+        监听线程的方法
+        """
+        while True:
+            poller = zmq.Poller()
+            poller.register(self.response, zmq.POLLIN)
+            poller.register(self.publish, zmq.POLLIN)
+            poller.register(self.threadResponse, zmq.POLLIN)
+            sockets = dict(poller.poll(timeoutMillisecond))
 
-        """
-        pass
+            if self.threadResponse in sockets:
+                # 接收到来自进程的命令
+                message = self.threadResponse.recv_multipart()
+                if message[1] == 'exit':
+                    return
+                continue
+
+            for socket in sockets:
+                message = socket.recv_multipart()
+                if message[0] == 'RESPONSE':
+                    respInfoJson = message[3]
+
+                elif message[0] == 'PUBLISH':
+                    respInfoJson = message[2]
+                else:
+                    print u'接收到1条未知消息'
+                    continue
+                print respInfoJson
+
+
+        print u'监听线程退出...'
 
 
 

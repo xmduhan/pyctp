@@ -223,6 +223,15 @@ class Trader :
         finally:
             self._callbackLock.release()
 
+
+    def _thread_function(self, arg):
+        """
+
+        """
+        pass
+
+
+
 {# 生成所有api的实现 -#}
 {%- for method in reqMethodDict.itervalues() -%}
 {% include 'ReqMethod.py.tpl' %}

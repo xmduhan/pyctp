@@ -156,7 +156,7 @@ class Trader :
 
     def __exit__(self, type, value, tb):
         """ 让Trader可以使用with语句 """
-        #print '__exit__():被调用',type,value,tb
+        print '__exit__():被调用',type,value,tb
         pass
 
 
@@ -165,6 +165,7 @@ class Trader :
         对象移除过程
         1.结束ctp转换器进程
         """
+        print '__del__():被调用',type,value,tb
         self.__delTraderProcess()
 
 
@@ -276,7 +277,7 @@ class Trader :
                 poller.register(self.response, zmq.POLLIN)
                 poller.register(self.publish, zmq.POLLIN)
                 poller.register(self.threadResponse, zmq.POLLIN)
-                sockets = dict(poller.poll(1000))
+                sockets = dict(poller.poll())
 
                 if self.threadResponse in sockets:
                     # 接收到来自进程的命令

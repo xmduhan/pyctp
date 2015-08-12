@@ -96,12 +96,26 @@ def test_communicate_working_thread():
     测试和监听进程进行通讯
     """
     global frontAddress, mdFrontAddress, brokerID, userID, password
-    trader = Trader(frontAddress, brokerID, userID, password)
 
+    # 初始化进程检测工具对象
+    process = psutil.Process()
+    assert len(process.threads()) == 1
+
+
+    trader = Trader(frontAddress, brokerID, userID, password)
+    assert len(process.threads()) == 4
+
+    # 测试hello命令的响应
     trader._sendToThread(['hello'])
     messageList =trader._recvFromThread()
     assert messageList
     assert messageList[0] == 'hello'
+
+    # 测试线程退出命令的相应
+    trader._sendToThread(['exit'])
+    sleep(1)
+    assert len(process.threads()) == 3
+
 
 
 

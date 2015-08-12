@@ -233,6 +233,33 @@ class Trader :
             self._callbackLock.release()
 
 
+    def _sendToThread(self,messageList):
+        """
+        向线程发送一条命令消息
+        参数:
+        messageList  要发送的消息列表
+        返回值:无
+        """
+        self.threadRequest.send_multipart(messageList)
+
+
+    def _recvFromThread(self,timeout):
+        """
+        读取监听线程的返回消息
+        参数:
+        timeout  如果没有消息等待的时间
+        返回值:
+        如果无法收到消息返回None,否则返回消息列表
+        """
+        poller = zmq.Poller()
+        poller.register(self.threadRequest, zmq.POLLIN)
+        sockets = dict(poller.poll(timeout))
+        if self.threadRequest not in sockets:
+            return None
+        return self.threadRequest.recv_multipart()
+
+
+
     def _threadFunction(self, arg):
         """
         监听线程的方法
@@ -248,22 +275,24 @@ class Trader :
 
                 if self.threadResponse in sockets:
                     # 接收到来自进程的命令
-                    message = self.threadResponse.recv_multipart()
-                    if message[1] == 'exit':
+                    messageList = self.threadResponse.recv_multipart()
+                    if messageList[1] == 'exit':
                         return
+                    if messageList[1] == 'hello':
+                        self.threadResponse.send_multipart[messageList[0],'hello']
                     continue
 
                 # 循环读取消息进程回调处理
                 for socket in sockets:
                     # 读取消息
-                    message = socket.recv_multipart()
+                    messageList = socket.recv_multipart()
 
                     # 根据不同的消息类型提取回调名称和参数信息
-                    if message[0] == 'RESPONSE':
-                        apiName, respInfoJson = message[2:4]
+                    if messageList[0] == 'RESPONSE':
+                        apiName, respInfoJson = messageList[2:4]
 
-                    elif message[0] == 'PUBLISH':
-                        apiName, respInfoJson = message[1:3]
+                    elif messageList[0] == 'PUBLISH':
+                        apiName, respInfoJson = messageList[1:3]
                     else:
                         print u'接收到1条未知消息'
                         continue

@@ -17,9 +17,9 @@ password = None
 
 
 def setup():
-    '''
+    """
     所有用例的公共初始化代码
-    '''
+    """
     global frontAddress, mdFrontAddress, brokerID, userID, password
     # 读取环境变量中的信息
     frontAddress = os.environ.get('CTP_FRONT_ADDRESS')
@@ -36,9 +36,9 @@ def setup():
 
 @attr('test_trader_process_create_and_clean')
 def test_trader_process_create_and_clean():
-    '''
+    """
     测试trader转换器进程的创建和清理
-    '''
+    """
     global frontAddress, mdFrontAddress, brokerID, userID, password
     process = psutil.Process()
     # 没有创建Trader对象前应该没有trader进程

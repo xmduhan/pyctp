@@ -2,17 +2,17 @@
 # encoding: utf-8
 
 class Md :
-	'''
+	"""
 	Md通讯管道类,该类通过和CTPConverter的Md(行情)进程通讯,实线行情数据的传送
-	'''
+	"""
 
 
 
 	def __testChannel(self):
-		'''
+		"""
 		检查和ctp md 进程是否连通
 		在md进程启动后会先发送一个空消息,提供测试通路使用
-		'''
+		"""
 		# 由于zmq publisher需要等待客户端连接，这里等待相应时间才能接受到消息
 		timeout = 2000
 		reader = self.reader
@@ -32,9 +32,9 @@ class Md :
 
 
 	def __delTraderProcess(self):
-		'''
+		"""
 		清除trader转换器进程
-		'''
+		"""
 		if hasattr(self, 'mdProcess'):
 			self.mdProcess.kill()
 			self.mdProcess.wait()
@@ -43,7 +43,7 @@ class Md :
 
 
 	def __init__(self,frontAddress,brokerID,userID,password,instrumentIDList):
-		'''
+		"""
 		1.创建ctp转换器进程
 		2.创建和ctp通讯进程的通讯管道
 		3.测试ctp连接是否正常
@@ -53,7 +53,7 @@ class Md :
 		userID   用户Id
 		password   密码
 		instrumentIDList   需要订阅的品种的Id列表
-		'''
+		"""
 		# 创建临时工作目录
 		self.workdir = tempfile.mkdtemp()
 
@@ -100,31 +100,31 @@ class Md :
 
 
 	def __enter__(self):
-		''' 让Md可以使用with语句 '''
+		""" 让Md可以使用with语句 """
 		#print '__enter__():被调用'
 		return self
 
 
 	def __exit__(self, type, value, tb):
-		''' 让Md可以使用with语句 '''
+		""" 让Md可以使用with语句 """
 		#print '__exit__():被调用',type,value,tb
 		pass
 
 
 	def __del__(self):
-		'''
+		"""
 		对象移出过程
 		1.结束ctp转换器进程
-		'''
+		"""
 		self.__delTraderProcess()
 
 
 	def readMarketData(self,timeout=1):
-		'''
+		"""
 		读取行情数据
 		参数
 		timeout 如果当前没有消息的等待时间(毫秒)
-		'''
+		"""
 		reader = self.reader
 		poller = zmq.Poller()
 		poller.register(reader, zmq.POLLIN)

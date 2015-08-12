@@ -1,10 +1,10 @@
 {% set parameter = method['parameters'][0]  %}
 	def {{ method['name'][3:]}}(self,data):
-		'''
+		"""
 		{{ method['remark'][3:] }}
 		data 调用api需要填写参数表单,类型为{{parameter['raw_type']}},具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,{{parameter['raw_type']}}):

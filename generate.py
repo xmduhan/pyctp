@@ -13,9 +13,9 @@ templateData = 'template_data.pk'
 
 
 def loadCtpHeaderData():
-    '''
+    """
     读取提供模板生态代码的ctp api函数信息
-    '''
+    """
 
     # 如果存在模板数据文件直接从数据文件中读取
     if os.path.exists(templateData) :
@@ -141,11 +141,11 @@ def loadCtpHeaderData():
 
 
 def renderTemplate(filename,data,outdir='.'):
-    '''
+    """
     将一个模板文件转化对应的.cpp文件
     filename 模板名称
     注意：这里假设所有模板文件的的后缀都是".cpp.tpl"
-    '''
+    """
 	# 初始化模板系统目录
     env = Environment(loader=FileSystemLoader(templateDir))
     template = env.get_template(filename)
@@ -160,9 +160,9 @@ def renderTemplate(filename,data,outdir='.'):
 
 
 def renderAll(data):
-    '''
+    """
     将模板目录中的所有.cpp.tpl和.h.tpl的文件转化成对应的代码文件
-    '''
+    """
     # 遍历所有.cpp.tpl模板文件,并生成.cpp文件
     templates = [ i for i in os.listdir(templateDir) if i.endswith('.cpp.tpl') ]
     for template in templates:
@@ -175,10 +175,10 @@ def renderAll(data):
 
 
 def main():
-    '''
+    """
     命令使用格式:
     python generate.py [--all] | [template file name] [source place dir]
-    '''
+    """
     # 读取ctp接口的各类定义信息,用于生成模板
     data = loadCtpHeaderData()
 

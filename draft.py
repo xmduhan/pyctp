@@ -2,7 +2,7 @@
 # encoding: utf-8
 
 #%% 已完成任务
-'''
+"""
 1. 完成Makefile文件(ok)
 2. 设定跟__init__.py的命名空间问题 (ok)
 3. 增加一个callback文件(ok)
@@ -11,17 +11,17 @@
 6. 去掉等待相关代码(okk)
 7. 是否还是要增加message.py 和 error.py(作为统一差错信息处理，因为现在md和trader的文件分开了)(ok)
 8. 将所有的响应函数映射到CTPCallback.py.tpl中(ok)
-'''
+"""
 
 
 #%% 任务列表
-'''
+"""
 
 . 增加绑定函数(理解多线程问题)(ok)
 . 构造函数中增加启动子进程轮询代码
 . 修改reqMethond模板,仅保留请求部分
 . 解决转换器参数大小写不一致的问题
-'''
+"""
 
 #%% 目标调用方式
 from pyctp import Trader,Md,struct,callback

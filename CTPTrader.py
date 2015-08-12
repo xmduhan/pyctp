@@ -13,9 +13,9 @@ from ErrorResult import *
 
 
 def packageReqInfo(apiName,data):
-	'''
+	"""
 	获取一个默认的调用结构
-	'''
+	"""
 	reqInfo = {}
 	reqInfo['RequestMethod'] = apiName
 	parameters = {}
@@ -29,24 +29,24 @@ def mallocIpcAddress():
 	return 'ipc://%s' % tempfile.mktemp(suffix='.ipc',prefix='tmp_')
 
 class Trader :
-    '''
+    """
     Trader通讯管道类,该类通过和CTPConverter的Trader进程通讯,对外实现python语言封装的CTP接口,
-    '''
+    """
 
     def __testChannel(self):
-        '''
+        """
         检查ctp交易通道是否运行正常，该方法在构造函数内调用如果失败，构造函数会抛出异常
         成功返回True，失败返回False
-        '''
+        """
         data = CThostFtdcQryTradingAccountField()
         result = self.QryTradingAccount(data)
         return result[0] == 0
 
 
     def __delTraderProcess(self):
-        '''
+        """
         清除trader转换器进程
-        '''
+        """
 
         if hasattr(self, 'traderProcess'):
             self.traderProcess.kill()
@@ -56,7 +56,7 @@ class Trader :
 
     def __init__(self,frontAddress,brokerID,userID,password,
         timeout=10,converterQueryInterval=1):
-        '''
+        """
         初始化过程:
         1.创建ctp转换器进程
         2.创建和ctp通讯进程的通讯管道
@@ -70,7 +70,7 @@ class Trader :
         queryInterval  查询间隔时间(单位:秒)
         timeout 等待响应时间(单位:秒)
         converterQueryInterval 转换器的流量控制时间间隔(单位:秒),默认为1
-        '''
+        """
         # 创建临时工作目录
         self.workdir = tempfile.mkdtemp()
 
@@ -134,27 +134,27 @@ class Trader :
 
 
     def __enter__(self):
-        ''' 让Trader可以使用with语句 '''
+        """ 让Trader可以使用with语句 """
         #print '__enter__():被调用'
         return self
 
 
     def __exit__(self, type, value, tb):
-        ''' 让Trader可以使用with语句 '''
+        """ 让Trader可以使用with语句 """
         #print '__exit__():被调用',type,value,tb
         pass
 
 
     def __del__(self):
-        '''
+        """
         对象移除过程
         1.结束ctp转换器进程
-        '''
+        """
         self.__delTraderProcess()
 
 
     def bind(self,callbackName,funcToCall):
-        '''
+        """
         绑定回调函数
         参数:
         callbackName  回调函数名称，具体可用项在pyctp.callback模块中定义
@@ -163,7 +163,7 @@ class Trader :
         def funcToCall(**kargs)
         返回值:
         如果绑定成功方法返回一个bindId,这个id可以用于解除绑定(unbind)时使用
-        '''
+        """
         self._callbackLock.acquire()
         try:
             callbackUuid = uuid.uuid1()
@@ -181,13 +181,13 @@ class Trader :
 
 
     def unbind(self,bindId):
-        '''
+        """
         解除回调函数的绑定
         参数:
         bindId 绑定回调函数时的返回值
         返回值:
         成功返回True，失败(或没有找到绑定项)返回False
-        '''
+        """
         self._callbackLock.acquire()
         try:
             if bindId not in self._callbackUuidDict.keys():
@@ -202,14 +202,14 @@ class Trader :
 
 
     def _callback(self,callbackName,args):
-        '''
+        """
         根据回调链调用已经绑定的所有回调函数，该函数主要提供给监听简称使用
         参数:
         callbackName  回调函数名称
         args 用于传递给回调函数的参数(字典结构)
         返回值:
         无
-        '''
+        """
         self._callbackLock.acquire()
         try:
             if callbackName not in self._callbackDict.keys():
@@ -224,12 +224,21 @@ class Trader :
             self._callbackLock.release()
 
 
+    def _thread_function(self, arg):
+        """
+
+        """
+        pass
+
+
+
+
 	def QryTradingAccount(self,data):
-		'''
+		"""
 		请求查询资金账户
 		data 调用api需要填写参数表单,类型为CThostFtdcQryTradingAccountField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryTradingAccountField):
@@ -274,11 +283,11 @@ class Trader :
 
 
 	def QryCFMMCTradingAccountKey(self,data):
-		'''
+		"""
 		请求查询保证金监管系统经纪公司资金账户密钥
 		data 调用api需要填写参数表单,类型为CThostFtdcQryCFMMCTradingAccountKeyField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryCFMMCTradingAccountKeyField):
@@ -323,11 +332,11 @@ class Trader :
 
 
 	def UserPasswordUpdate(self,data):
-		'''
+		"""
 		用户口令更新请求
 		data 调用api需要填写参数表单,类型为CThostFtdcUserPasswordUpdateField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcUserPasswordUpdateField):
@@ -372,11 +381,11 @@ class Trader :
 
 
 	def QryTradingNotice(self,data):
-		'''
+		"""
 		请求查询交易通知
 		data 调用api需要填写参数表单,类型为CThostFtdcQryTradingNoticeField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryTradingNoticeField):
@@ -421,11 +430,11 @@ class Trader :
 
 
 	def QryTrade(self,data):
-		'''
+		"""
 		请求查询成交
 		data 调用api需要填写参数表单,类型为CThostFtdcQryTradeField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryTradeField):
@@ -470,11 +479,11 @@ class Trader :
 
 
 	def QueryMaxOrderVolume(self,data):
-		'''
+		"""
 		查询最大报单数量请求
 		data 调用api需要填写参数表单,类型为CThostFtdcQueryMaxOrderVolumeField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQueryMaxOrderVolumeField):
@@ -519,11 +528,11 @@ class Trader :
 
 
 	def SettlementInfoConfirm(self,data):
-		'''
+		"""
 		投资者结算结果确认
 		data 调用api需要填写参数表单,类型为CThostFtdcSettlementInfoConfirmField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcSettlementInfoConfirmField):
@@ -568,11 +577,11 @@ class Trader :
 
 
 	def QryInvestorPosition(self,data):
-		'''
+		"""
 		请求查询投资者持仓
 		data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorPositionField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryInvestorPositionField):
@@ -617,11 +626,11 @@ class Trader :
 
 
 	def QryBrokerTradingAlgos(self,data):
-		'''
+		"""
 		请求查询经纪公司交易算法
 		data 调用api需要填写参数表单,类型为CThostFtdcQryBrokerTradingAlgosField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryBrokerTradingAlgosField):
@@ -666,11 +675,11 @@ class Trader :
 
 
 	def QryOrder(self,data):
-		'''
+		"""
 		请求查询报单
 		data 调用api需要填写参数表单,类型为CThostFtdcQryOrderField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryOrderField):
@@ -715,11 +724,11 @@ class Trader :
 
 
 	def QryExchange(self,data):
-		'''
+		"""
 		请求查询交易所
 		data 调用api需要填写参数表单,类型为CThostFtdcQryExchangeField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryExchangeField):
@@ -764,11 +773,11 @@ class Trader :
 
 
 	def UserLogin(self,data):
-		'''
+		"""
 		用户登录请求
 		data 调用api需要填写参数表单,类型为CThostFtdcReqUserLoginField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcReqUserLoginField):
@@ -813,11 +822,11 @@ class Trader :
 
 
 	def FromFutureToBankByFuture(self,data):
-		'''
+		"""
 		期货发起期货资金转银行请求
 		data 调用api需要填写参数表单,类型为CThostFtdcReqTransferField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcReqTransferField):
@@ -862,11 +871,11 @@ class Trader :
 
 
 	def QryExchangeRate(self,data):
-		'''
+		"""
 		请求查询汇率
 		data 调用api需要填写参数表单,类型为CThostFtdcQryExchangeRateField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryExchangeRateField):
@@ -911,11 +920,11 @@ class Trader :
 
 
 	def QryInvestorPositionDetail(self,data):
-		'''
+		"""
 		请求查询投资者持仓明细
 		data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorPositionDetailField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryInvestorPositionDetailField):
@@ -960,11 +969,11 @@ class Trader :
 
 
 	def QrySettlementInfoConfirm(self,data):
-		'''
+		"""
 		请求查询结算信息确认
 		data 调用api需要填写参数表单,类型为CThostFtdcQrySettlementInfoConfirmField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQrySettlementInfoConfirmField):
@@ -1009,11 +1018,11 @@ class Trader :
 
 
 	def QryBrokerTradingParams(self,data):
-		'''
+		"""
 		请求查询经纪公司交易参数
 		data 调用api需要填写参数表单,类型为CThostFtdcQryBrokerTradingParamsField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryBrokerTradingParamsField):
@@ -1058,11 +1067,11 @@ class Trader :
 
 
 	def QueryCFMMCTradingAccountToken(self,data):
-		'''
+		"""
 		请求查询监控中心用户令牌
 		data 调用api需要填写参数表单,类型为CThostFtdcQueryCFMMCTradingAccountTokenField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQueryCFMMCTradingAccountTokenField):
@@ -1107,11 +1116,11 @@ class Trader :
 
 
 	def QryNotice(self,data):
-		'''
+		"""
 		请求查询客户通知
 		data 调用api需要填写参数表单,类型为CThostFtdcQryNoticeField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryNoticeField):
@@ -1156,11 +1165,11 @@ class Trader :
 
 
 	def FromBankToFutureByFuture(self,data):
-		'''
+		"""
 		期货发起银行资金转期货请求
 		data 调用api需要填写参数表单,类型为CThostFtdcReqTransferField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcReqTransferField):
@@ -1205,11 +1214,11 @@ class Trader :
 
 
 	def ParkedOrderInsert(self,data):
-		'''
+		"""
 		预埋单录入请求
 		data 调用api需要填写参数表单,类型为CThostFtdcParkedOrderField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcParkedOrderField):
@@ -1254,11 +1263,11 @@ class Trader :
 
 
 	def QryInvestorPositionCombineDetail(self,data):
-		'''
+		"""
 		请求查询投资者持仓明细
 		data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorPositionCombineDetailField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryInvestorPositionCombineDetailField):
@@ -1303,11 +1312,11 @@ class Trader :
 
 
 	def OrderInsert(self,data):
-		'''
+		"""
 		报单录入请求
 		data 调用api需要填写参数表单,类型为CThostFtdcInputOrderField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcInputOrderField):
@@ -1352,11 +1361,11 @@ class Trader :
 
 
 	def QrySecAgentACIDMap(self,data):
-		'''
+		"""
 		请求查询二级代理操作员银期权限
 		data 调用api需要填写参数表单,类型为CThostFtdcQrySecAgentACIDMapField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQrySecAgentACIDMapField):
@@ -1401,11 +1410,11 @@ class Trader :
 
 
 	def ParkedOrderAction(self,data):
-		'''
+		"""
 		预埋撤单录入请求
 		data 调用api需要填写参数表单,类型为CThostFtdcParkedOrderActionField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcParkedOrderActionField):
@@ -1450,11 +1459,11 @@ class Trader :
 
 
 	def QueryBankAccountMoneyByFuture(self,data):
-		'''
+		"""
 		期货发起查询银行余额请求
 		data 调用api需要填写参数表单,类型为CThostFtdcReqQueryAccountField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcReqQueryAccountField):
@@ -1499,11 +1508,11 @@ class Trader :
 
 
 	def QryParkedOrderAction(self,data):
-		'''
+		"""
 		请求查询预埋撤单
 		data 调用api需要填写参数表单,类型为CThostFtdcQryParkedOrderActionField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryParkedOrderActionField):
@@ -1548,11 +1557,11 @@ class Trader :
 
 
 	def Authenticate(self,data):
-		'''
+		"""
 		客户端认证请求
 		data 调用api需要填写参数表单,类型为CThostFtdcReqAuthenticateField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcReqAuthenticateField):
@@ -1597,11 +1606,11 @@ class Trader :
 
 
 	def QryExchangeMarginRate(self,data):
-		'''
+		"""
 		请求查询交易所保证金率
 		data 调用api需要填写参数表单,类型为CThostFtdcQryExchangeMarginRateField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryExchangeMarginRateField):
@@ -1646,11 +1655,11 @@ class Trader :
 
 
 	def TradingAccountPasswordUpdate(self,data):
-		'''
+		"""
 		资金账户口令更新请求
 		data 调用api需要填写参数表单,类型为CThostFtdcTradingAccountPasswordUpdateField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcTradingAccountPasswordUpdateField):
@@ -1695,11 +1704,11 @@ class Trader :
 
 
 	def UserLogout(self,data):
-		'''
+		"""
 		登出请求
 		data 调用api需要填写参数表单,类型为CThostFtdcUserLogoutField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcUserLogoutField):
@@ -1744,11 +1753,11 @@ class Trader :
 
 
 	def QryInstrument(self,data):
-		'''
+		"""
 		请求查询合约
 		data 调用api需要填写参数表单,类型为CThostFtdcQryInstrumentField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryInstrumentField):
@@ -1793,11 +1802,11 @@ class Trader :
 
 
 	def OrderAction(self,data):
-		'''
+		"""
 		报单操作请求
 		data 调用api需要填写参数表单,类型为CThostFtdcInputOrderActionField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcInputOrderActionField):
@@ -1842,11 +1851,11 @@ class Trader :
 
 
 	def QryInstrumentCommissionRate(self,data):
-		'''
+		"""
 		请求查询合约手续费率
 		data 调用api需要填写参数表单,类型为CThostFtdcQryInstrumentCommissionRateField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryInstrumentCommissionRateField):
@@ -1891,11 +1900,11 @@ class Trader :
 
 
 	def QryInstrumentMarginRate(self,data):
-		'''
+		"""
 		请求查询合约保证金率
 		data 调用api需要填写参数表单,类型为CThostFtdcQryInstrumentMarginRateField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryInstrumentMarginRateField):
@@ -1940,11 +1949,11 @@ class Trader :
 
 
 	def QryInvestor(self,data):
-		'''
+		"""
 		请求查询投资者
 		data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryInvestorField):
@@ -1989,11 +1998,11 @@ class Trader :
 
 
 	def QryExchangeMarginRateAdjust(self,data):
-		'''
+		"""
 		请求查询交易所调整保证金率
 		data 调用api需要填写参数表单,类型为CThostFtdcQryExchangeMarginRateAdjustField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryExchangeMarginRateAdjustField):
@@ -2038,11 +2047,11 @@ class Trader :
 
 
 	def QryInvestorProductGroupMargin(self,data):
-		'''
+		"""
 		请求查询投资者品种/跨品种保证金
 		data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorProductGroupMarginField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryInvestorProductGroupMarginField):
@@ -2087,11 +2096,11 @@ class Trader :
 
 
 	def QryEWarrantOffset(self,data):
-		'''
+		"""
 		请求查询仓单折抵信息
 		data 调用api需要填写参数表单,类型为CThostFtdcQryEWarrantOffsetField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryEWarrantOffsetField):
@@ -2136,11 +2145,11 @@ class Trader :
 
 
 	def QryDepthMarketData(self,data):
-		'''
+		"""
 		请求查询行情
 		data 调用api需要填写参数表单,类型为CThostFtdcQryDepthMarketDataField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryDepthMarketDataField):
@@ -2185,11 +2194,11 @@ class Trader :
 
 
 	def QryTransferBank(self,data):
-		'''
+		"""
 		请求查询转帐银行
 		data 调用api需要填写参数表单,类型为CThostFtdcQryTransferBankField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryTransferBankField):
@@ -2234,11 +2243,11 @@ class Trader :
 
 
 	def RemoveParkedOrderAction(self,data):
-		'''
+		"""
 		请求删除预埋撤单
 		data 调用api需要填写参数表单,类型为CThostFtdcRemoveParkedOrderActionField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcRemoveParkedOrderActionField):
@@ -2283,11 +2292,11 @@ class Trader :
 
 
 	def QryProduct(self,data):
-		'''
+		"""
 		请求查询产品
 		data 调用api需要填写参数表单,类型为CThostFtdcQryProductField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryProductField):
@@ -2332,11 +2341,11 @@ class Trader :
 
 
 	def QryTradingCode(self,data):
-		'''
+		"""
 		请求查询交易编码
 		data 调用api需要填写参数表单,类型为CThostFtdcQryTradingCodeField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryTradingCodeField):
@@ -2381,11 +2390,11 @@ class Trader :
 
 
 	def QrySettlementInfo(self,data):
-		'''
+		"""
 		请求查询投资者结算结果
 		data 调用api需要填写参数表单,类型为CThostFtdcQrySettlementInfoField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQrySettlementInfoField):
@@ -2430,11 +2439,11 @@ class Trader :
 
 
 	def QryAccountregister(self,data):
-		'''
+		"""
 		请求查询银期签约关系
 		data 调用api需要填写参数表单,类型为CThostFtdcQryAccountregisterField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryAccountregisterField):
@@ -2479,11 +2488,11 @@ class Trader :
 
 
 	def QryParkedOrder(self,data):
-		'''
+		"""
 		请求查询预埋单
 		data 调用api需要填写参数表单,类型为CThostFtdcQryParkedOrderField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryParkedOrderField):
@@ -2528,11 +2537,11 @@ class Trader :
 
 
 	def QryTransferSerial(self,data):
-		'''
+		"""
 		请求查询转帐流水
 		data 调用api需要填写参数表单,类型为CThostFtdcQryTransferSerialField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryTransferSerialField):
@@ -2577,11 +2586,11 @@ class Trader :
 
 
 	def QryContractBank(self,data):
-		'''
+		"""
 		请求查询签约银行
 		data 调用api需要填写参数表单,类型为CThostFtdcQryContractBankField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcQryContractBankField):
@@ -2626,11 +2635,11 @@ class Trader :
 
 
 	def RemoveParkedOrder(self,data):
-		'''
+		"""
 		请求删除预埋单
 		data 调用api需要填写参数表单,类型为CThostFtdcRemoveParkedOrderField,具体参见其定义文件
 		返回信息格式[errorID,errorMsg,responseData=[...]]
-		'''
+		"""
 
         # 检查表单数据的类型是否正确
 		if not isinstance(data,CThostFtdcRemoveParkedOrderField):

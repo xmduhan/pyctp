@@ -5,10 +5,12 @@ import json
 import uuid
 import tempfile
 import subprocess
+import threading
 from CTPStruct import *
 from time import sleep
 from datetime import datetime,timedelta
 from ErrorResult import *
+
 
 def packageReqInfo(apiName,data):
 	'''
@@ -128,7 +130,7 @@ class Trader :
         # 回调数据链
         self._callbackDict = {}
         self._callbackUuidDict = {}
-
+        self._callbackLock = threading.RLock()
 
 
     def __enter__(self):
@@ -162,17 +164,20 @@ class Trader :
         返回值:
         如果绑定成功方法返回一个bindId,这个id可以用于解除绑定(unbind)时使用
         '''
-        # TODO: 该函数需要做线程互斥处理
-        callbackUuid = uuid.uuid1()
-        self._callbackUuidDict[callbackUuid] = {
-            'callbackName':callbackName,
-            'funcToCall' : funcToCall
-        }
-        if callbackName in self._callbackDict.keys():
-            self._callbackDict[callbackName].append(callbackUuid)
-        else:
-            self._callbackDict[callbackName] = [callbackUuid]
-        return callbackUuid
+        self._callbackLock.acquire()
+        try:
+            callbackUuid = uuid.uuid1()
+            self._callbackUuidDict[callbackUuid] = {
+                'callbackName':callbackName,
+                'funcToCall' : funcToCall
+            }
+            if callbackName in self._callbackDict.keys():
+                self._callbackDict[callbackName].append(callbackUuid)
+            else:
+                self._callbackDict[callbackName] = [callbackUuid]
+            return callbackUuid
+        finally:
+            self._callbackLock.release()
 
 
     def unbind(self,bindId):
@@ -183,13 +188,17 @@ class Trader :
         返回值:
         成功返回True，失败(或没有找到绑定项)返回False
         '''
-        # TODO: 该函数需要做线程互斥处理
-        if bindId not in self._callbackUuidDict.keys():
-            return False
-        callbackName = self._callbackUuidDict[bindId]['callbackName']
-        self._callbackDict[callbackName].remove(bindId)
-        self._callbackUuidDict.pop(bindId)
-        return True
+        self._callbackLock.acquire()
+        try:
+            if bindId not in self._callbackUuidDict.keys():
+                return False
+            callbackName = self._callbackUuidDict[bindId]['callbackName']
+            self._callbackDict[callbackName].remove(bindId)
+            self._callbackUuidDict.pop(bindId)
+            return True
+        finally:
+            self._callbackLock.release()
+
 
 
     def _callback(self,callbackName,args):
@@ -201,19 +210,20 @@ class Trader :
         返回值:
         无
         '''
-        # TODO: 该函数需要做线程互斥处理
-        if callbackName not in self._callbackDict.keys():
-            return
-        for callbackUuid in self._callbackDict[callbackName]:
-            funcToCall = self._callbackUuidDict[callbackUuid]['funcToCall']
-            try:
-                funcToCall(**args)
-            except Exception as e:
-                print e
+        self._callbackLock.acquire()
+        try:
+            if callbackName not in self._callbackDict.keys():
+                return
+            for callbackUuid in self._callbackDict[callbackName]:
+                funcToCall = self._callbackUuidDict[callbackUuid]['funcToCall']
+                try:
+                    funcToCall(**args)
+                except Exception as e:
+                    print e
+        finally:
+            self._callbackLock.release()
 
-
-{# 所有api的实现 #}
-{% for method in reqMethodDict.itervalues() %}
-    {% include 'ReqMethod.py.tpl' %}
-{% endfor %}
-
+{# 生成所有api的实现 -#}
+{%- for method in reqMethodDict.itervalues() -%}
+{% include 'ReqMethod.py.tpl' %}
+{% endfor -%}

@@ -1,4 +1,4 @@
-	{% set parameter = method['parameters'][0]  %}
+{% set parameter = method['parameters'][0]  %}
 	def {{ method['name'][3:]}}(self,data):
 		'''
 		{{ method['remark'][3:] }}

@@ -5,10 +5,12 @@ import json
 import uuid
 import tempfile
 import subprocess
+import threading
 from CTPStruct import *
 from time import sleep
 from datetime import datetime,timedelta
 from ErrorResult import *
+
 
 def packageReqInfo(apiName,data):
 	'''
@@ -128,7 +130,7 @@ class Trader :
         # 回调数据链
         self._callbackDict = {}
         self._callbackUuidDict = {}
-
+        self._callbackLock = threading.RLock()
 
 
     def __enter__(self):
@@ -162,17 +164,20 @@ class Trader :
         返回值:
         如果绑定成功方法返回一个bindId,这个id可以用于解除绑定(unbind)时使用
         '''
-        # TODO: 该函数需要做线程互斥处理
-        callbackUuid = uuid.uuid1()
-        self._callbackUuidDict[callbackUuid] = {
-            'callbackName':callbackName,
-            'funcToCall' : funcToCall
-        }
-        if callbackName in self._callbackDict.keys():
-            self._callbackDict[callbackName].append(callbackUuid)
-        else:
-            self._callbackDict[callbackName] = [callbackUuid]
-        return callbackUuid
+        self._callbackLock.acquire()
+        try:
+            callbackUuid = uuid.uuid1()
+            self._callbackUuidDict[callbackUuid] = {
+                'callbackName':callbackName,
+                'funcToCall' : funcToCall
+            }
+            if callbackName in self._callbackDict.keys():
+                self._callbackDict[callbackName].append(callbackUuid)
+            else:
+                self._callbackDict[callbackName] = [callbackUuid]
+            return callbackUuid
+        finally:
+            self._callbackLock.release()
 
 
     def unbind(self,bindId):
@@ -183,13 +188,17 @@ class Trader :
         返回值:
         成功返回True，失败(或没有找到绑定项)返回False
         '''
-        # TODO: 该函数需要做线程互斥处理
-        if bindId not in self._callbackUuidDict.keys():
-            return False
-        callbackName = self._callbackUuidDict[bindId]['callbackName']
-        self._callbackDict[callbackName].remove(bindId)
-        self._callbackUuidDict.pop(bindId)
-        return True
+        self._callbackLock.acquire()
+        try:
+            if bindId not in self._callbackUuidDict.keys():
+                return False
+            callbackName = self._callbackUuidDict[bindId]['callbackName']
+            self._callbackDict[callbackName].remove(bindId)
+            self._callbackUuidDict.pop(bindId)
+            return True
+        finally:
+            self._callbackLock.release()
+
 
 
     def _callback(self,callbackName,args):
@@ -201,20 +210,20 @@ class Trader :
         返回值:
         无
         '''
-        # TODO: 该函数需要做线程互斥处理
-        if callbackName not in self._callbackDict.keys():
-            return
-        for callbackUuid in self._callbackDict[callbackName]:
-            funcToCall = self._callbackUuidDict[callbackUuid]['funcToCall']
-            try:
-                funcToCall(**args)
-            except Exception as e:
-                print e
+        self._callbackLock.acquire()
+        try:
+            if callbackName not in self._callbackDict.keys():
+                return
+            for callbackUuid in self._callbackDict[callbackName]:
+                funcToCall = self._callbackUuidDict[callbackUuid]['funcToCall']
+                try:
+                    funcToCall(**args)
+                except Exception as e:
+                    print e
+        finally:
+            self._callbackLock.release()
 
 
-
-
-    	
 	def QryTradingAccount(self,data):
 		'''
 		请求查询资金账户
@@ -264,7 +273,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryCFMMCTradingAccountKey(self,data):
 		'''
 		请求查询保证金监管系统经纪公司资金账户密钥
@@ -314,7 +322,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def UserPasswordUpdate(self,data):
 		'''
 		用户口令更新请求
@@ -364,7 +371,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryTradingNotice(self,data):
 		'''
 		请求查询交易通知
@@ -414,7 +420,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryTrade(self,data):
 		'''
 		请求查询成交
@@ -464,7 +469,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QueryMaxOrderVolume(self,data):
 		'''
 		查询最大报单数量请求
@@ -514,7 +518,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def SettlementInfoConfirm(self,data):
 		'''
 		投资者结算结果确认
@@ -564,7 +567,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryInvestorPosition(self,data):
 		'''
 		请求查询投资者持仓
@@ -614,7 +616,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryBrokerTradingAlgos(self,data):
 		'''
 		请求查询经纪公司交易算法
@@ -664,7 +665,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryOrder(self,data):
 		'''
 		请求查询报单
@@ -714,7 +714,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryExchange(self,data):
 		'''
 		请求查询交易所
@@ -764,7 +763,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def UserLogin(self,data):
 		'''
 		用户登录请求
@@ -814,7 +812,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def FromFutureToBankByFuture(self,data):
 		'''
 		期货发起期货资金转银行请求
@@ -864,7 +861,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryExchangeRate(self,data):
 		'''
 		请求查询汇率
@@ -914,7 +910,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryInvestorPositionDetail(self,data):
 		'''
 		请求查询投资者持仓明细
@@ -964,7 +959,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QrySettlementInfoConfirm(self,data):
 		'''
 		请求查询结算信息确认
@@ -1014,7 +1008,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryBrokerTradingParams(self,data):
 		'''
 		请求查询经纪公司交易参数
@@ -1064,7 +1057,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QueryCFMMCTradingAccountToken(self,data):
 		'''
 		请求查询监控中心用户令牌
@@ -1114,7 +1106,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryNotice(self,data):
 		'''
 		请求查询客户通知
@@ -1164,7 +1155,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def FromBankToFutureByFuture(self,data):
 		'''
 		期货发起银行资金转期货请求
@@ -1214,7 +1204,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def ParkedOrderInsert(self,data):
 		'''
 		预埋单录入请求
@@ -1264,7 +1253,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryInvestorPositionCombineDetail(self,data):
 		'''
 		请求查询投资者持仓明细
@@ -1314,7 +1302,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def OrderInsert(self,data):
 		'''
 		报单录入请求
@@ -1364,7 +1351,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QrySecAgentACIDMap(self,data):
 		'''
 		请求查询二级代理操作员银期权限
@@ -1414,7 +1400,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def ParkedOrderAction(self,data):
 		'''
 		预埋撤单录入请求
@@ -1464,7 +1449,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QueryBankAccountMoneyByFuture(self,data):
 		'''
 		期货发起查询银行余额请求
@@ -1514,7 +1498,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryParkedOrderAction(self,data):
 		'''
 		请求查询预埋撤单
@@ -1564,7 +1547,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def Authenticate(self,data):
 		'''
 		客户端认证请求
@@ -1614,7 +1596,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryExchangeMarginRate(self,data):
 		'''
 		请求查询交易所保证金率
@@ -1664,7 +1645,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def TradingAccountPasswordUpdate(self,data):
 		'''
 		资金账户口令更新请求
@@ -1714,7 +1694,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def UserLogout(self,data):
 		'''
 		登出请求
@@ -1764,7 +1743,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryInstrument(self,data):
 		'''
 		请求查询合约
@@ -1814,7 +1792,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def OrderAction(self,data):
 		'''
 		报单操作请求
@@ -1864,7 +1841,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryInstrumentCommissionRate(self,data):
 		'''
 		请求查询合约手续费率
@@ -1914,7 +1890,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryInstrumentMarginRate(self,data):
 		'''
 		请求查询合约保证金率
@@ -1964,7 +1939,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryInvestor(self,data):
 		'''
 		请求查询投资者
@@ -2014,7 +1988,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryExchangeMarginRateAdjust(self,data):
 		'''
 		请求查询交易所调整保证金率
@@ -2064,7 +2037,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryInvestorProductGroupMargin(self,data):
 		'''
 		请求查询投资者品种/跨品种保证金
@@ -2114,7 +2086,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryEWarrantOffset(self,data):
 		'''
 		请求查询仓单折抵信息
@@ -2164,7 +2135,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryDepthMarketData(self,data):
 		'''
 		请求查询行情
@@ -2214,7 +2184,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryTransferBank(self,data):
 		'''
 		请求查询转帐银行
@@ -2264,7 +2233,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def RemoveParkedOrderAction(self,data):
 		'''
 		请求删除预埋撤单
@@ -2314,7 +2282,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryProduct(self,data):
 		'''
 		请求查询产品
@@ -2364,7 +2331,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryTradingCode(self,data):
 		'''
 		请求查询交易编码
@@ -2414,7 +2380,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QrySettlementInfo(self,data):
 		'''
 		请求查询投资者结算结果
@@ -2464,7 +2429,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryAccountregister(self,data):
 		'''
 		请求查询银期签约关系
@@ -2514,7 +2478,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryParkedOrder(self,data):
 		'''
 		请求查询预埋单
@@ -2564,7 +2527,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryTransferSerial(self,data):
 		'''
 		请求查询转帐流水
@@ -2614,7 +2576,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def QryContractBank(self,data):
 		'''
 		请求查询签约银行
@@ -2664,7 +2625,6 @@ class Trader :
 		return 0,'',requestIDMessage.requestID
 
 
-    	
 	def RemoveParkedOrder(self,data):
 		'''
 		请求删除预埋单
@@ -2712,5 +2672,4 @@ class Trader :
 
 		# 返回成功
 		return 0,'',requestIDMessage.requestID
-
 

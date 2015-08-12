@@ -143,7 +143,7 @@ class Trader :
         self._callbackLock = threading.RLock()
 
         # 启动工作线程
-        thread = threading.Thread(target=self._threadFunction,args=(self,))
+        thread = threading.Thread(target=self._threadFunction)
         thread.daemon = True
         thread.start()
 
@@ -265,7 +265,7 @@ class Trader :
 
 
 
-    def _threadFunction(self, arg):
+    def _threadFunction(self):
         """
         监听线程的方法
         """
@@ -276,7 +276,7 @@ class Trader :
                 poller.register(self.response, zmq.POLLIN)
                 poller.register(self.publish, zmq.POLLIN)
                 poller.register(self.threadResponse, zmq.POLLIN)
-                sockets = dict(poller.poll())
+                sockets = dict(poller.poll(1000))
 
                 if self.threadResponse in sockets:
                     # 接收到来自进程的命令
@@ -284,14 +284,13 @@ class Trader :
                     if messageList[1] == 'exit':
                         return
                     if messageList[1] == 'hello':
-                        self.threadResponse.send_multipart[messageList[0],'hello']
+                        self.threadResponse.send_multipart([messageList[0],'hello'])
                     continue
 
                 # 循环读取消息进程回调处理
                 for socket in sockets:
                     # 读取消息
                     messageList = socket.recv_multipart()
-
                     # 根据不同的消息类型提取回调名称和参数信息
                     if messageList[0] == 'RESPONSE':
                         apiName, respInfoJson = messageList[2:4]
@@ -299,7 +298,7 @@ class Trader :
                     elif messageList[0] == 'PUBLISH':
                         apiName, respInfoJson = messageList[1:3]
                     else:
-                        print u'接收到1条未知消息'
+                        print u'接收到1条未知消息...'
                         continue
                     print respInfoJson
 
@@ -311,7 +310,7 @@ class Trader :
             except Exception as e:
                 print e
 
-            print u'监听线程退出...'
+        print u'监听线程退出...'
 
 
 

@@ -10,7 +10,7 @@ from CTPStruct import *
 from time import sleep
 from datetime import datetime,timedelta
 from ErrorResult import *
-
+import json
 
 def packageReqInfo(apiName,data):
 	"""
@@ -238,33 +238,46 @@ class Trader :
         监听线程的方法
         """
         while True:
-            poller = zmq.Poller()
-            poller.register(self.response, zmq.POLLIN)
-            poller.register(self.publish, zmq.POLLIN)
-            poller.register(self.threadResponse, zmq.POLLIN)
-            sockets = dict(poller.poll(timeoutMillisecond))
+            try:
+                # 等待消息
+                poller = zmq.Poller()
+                poller.register(self.response, zmq.POLLIN)
+                poller.register(self.publish, zmq.POLLIN)
+                poller.register(self.threadResponse, zmq.POLLIN)
+                sockets = dict(poller.poll())
 
-            if self.threadResponse in sockets:
-                # 接收到来自进程的命令
-                message = self.threadResponse.recv_multipart()
-                if message[1] == 'exit':
-                    return
-                continue
-
-            for socket in sockets:
-                message = socket.recv_multipart()
-                if message[0] == 'RESPONSE':
-                    respInfoJson = message[3]
-
-                elif message[0] == 'PUBLISH':
-                    respInfoJson = message[2]
-                else:
-                    print u'接收到1条未知消息'
+                if self.threadResponse in sockets:
+                    # 接收到来自进程的命令
+                    message = self.threadResponse.recv_multipart()
+                    if message[1] == 'exit':
+                        return
                     continue
-                print respInfoJson
 
+                # 循环读取消息进程回调处理
+                for socket in sockets:
+                    # 读取消息
+                    message = socket.recv_multipart()
 
-        print u'监听线程退出...'
+                    # 根据不同的消息类型提取回调名称和参数信息
+                    if message[0] == 'RESPONSE':
+                        apiName, respInfoJson = message[2:4]
+
+                    elif message[0] == 'PUBLISH':
+                        apiName, respInfoJson = message[1:3]
+                    else:
+                        print u'接收到1条未知消息'
+                        continue
+                    print respInfoJson
+
+                    respInfo = json.loads(respInfoJson)
+                    parameters = respInfo['Parameters']
+
+                    # 调用对应的回调函数
+                    self._callback(apiName,**parameters)
+            except Exception as e:
+                print e
+
+            print u'监听线程退出...'
 
 
 

@@ -131,6 +131,7 @@ class Trader :
         # 创建线程控制通讯管道
         threadRequest = context.socket(zmq.DEALER)
         threadRequest.connect(self.threadControlPipe)
+        threadRequest.setsockopt(zmq.LINGER,0)
         self.threadRequest = threadRequest
         threadResponse = context.socket(zmq.ROUTER)
         threadResponse.bind(self.threadControlPipe)
@@ -140,6 +141,11 @@ class Trader :
         self._callbackDict = {}
         self._callbackUuidDict = {}
         self._callbackLock = threading.RLock()
+
+        # 启动工作线程
+        thread = threading.Thread(target=self._threadFunction,args=(self,))
+        thread.daemon = True
+        thread.start()
 
 
     def __enter__(self):
@@ -209,7 +215,6 @@ class Trader :
             self._callbackLock.release()
 
 
-
     def _callback(self,callbackName,args):
         """
         根据回调链调用已经绑定的所有回调函数，该函数主要提供给监听简称使用
@@ -243,11 +248,11 @@ class Trader :
         self.threadRequest.send_multipart(messageList)
 
 
-    def _recvFromThread(self,timeout):
+    def _recvFromThread(self,timeout=1000):
         """
         读取监听线程的返回消息
         参数:
-        timeout  如果没有消息等待的时间
+        timeout  如果没有消息等待的时间(单位:毫秒)
         返回值:
         如果无法收到消息返回None,否则返回消息列表
         """

@@ -90,6 +90,18 @@ def test_trader_bind_callback():
     assert len(flag) == 4
 
 
+@attr('test_communicate_working_thread')
+def test_communicate_working_thread():
+    """
+    测试和监听进程进行通讯
+    """
+    global frontAddress, mdFrontAddress, brokerID, userID, password
+    trader = Trader(frontAddress, brokerID, userID, password)
+
+    trader._sendToThread(['hello'])
+    messageList =trader._recvFromThread()
+    assert messageList
+    assert messageList[0] == 'hello'
 
 
 

@@ -156,7 +156,7 @@ class Trader :
 
     def __exit__(self, type, value, tb):
         """ 让Trader可以使用with语句 """
-        print '__exit__():被调用',type,value,tb
+        #print '__exit__():被调用',type,value,tb
         pass
 
 
@@ -165,7 +165,7 @@ class Trader :
         对象移除过程
         1.结束ctp转换器进程
         """
-        print '__del__():被调用',type,value,tb
+        #print '__del__():被调用'
         self.__delTraderProcess()
 
 

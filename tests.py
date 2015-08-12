@@ -116,6 +116,10 @@ def test_communicate_working_thread():
     sleep(1)
     assert len(process.threads()) == 3
 
+    #
+    trader = None
+    sleep(1)
+    assert len(process.threads()) == 1
 
 
 

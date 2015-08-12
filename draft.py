@@ -57,5 +57,44 @@ trader = Trader(frontAddress,brokerID,userID,password)
 
 
 #%%
+from threading import Thread
+from time import sleep
 
+class A(object):
+    
+    def test(self):
+        sleep(5)
+        print 'inner thread is exiting...'
+    
+    def __init__(self):                
+        self.thread = Thread(target=self.test)
+        self.thread.start()
+    
+    def __del__(self):
+        print '__del__ is called...'        
 
+a = A()
+a = None
+
+#%%
+from threading import Thread
+from time import sleep
+def test():
+    sleep(5)
+    print 'thread is exiting...'
+
+class A(object):
+    
+    def test(self):
+        sleep(5)
+        print 'inner thread is exiting...'
+    
+    def __init__(self):                
+        self.thread = Thread(target=test)
+        self.thread.start()
+    
+    def __del__(self):
+        print '__del__ is called...'        
+
+a = A()
+a = None

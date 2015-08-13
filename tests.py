@@ -125,30 +125,33 @@ def test_communicate_working_thread():
 
 @attr('test_qry_trading_account')
 def test_qry_trading_account():
+
     # 创建trader对象
     global frontAddress, mdFrontAddress, brokerID, userID, password
     trader = Trader(frontAddress, brokerID, userID, password)
 
+    # 定义测试标志
     flag = []
-    def OnRspQryTradingAccount(**kargs):
-        print 'OnRspQryTradingAccount is called'
-        print kargs
-        flag.append(1)
 
-    trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount)
+    # 定义回调函数,并将其绑定
+    def OnRspQryTradingAccount1(RequestID,RspInfo,Data,IsLast):
+        print 'OnRspQryTradingAccount is called'
+        #print kargs.keys()
+        flag.append(1)
+    trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount1)
+
+    def OnRspQryTradingAccount2(**kargs):
+        print 'OnRspQryTradingAccount is called'
+        #print kargs.keys()
+        flag.append(1)
+    trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount2)
+
+    # 发送一个请求并等待回调函数被调用
+    sleep(1)
     data = struct.CThostFtdcQryTradingAccountField()
     result = trader.ReqQryTradingAccount(data)
-    print result
-    result = trader.ReqQryTradingAccount(data)
-    print result
-    sleep(3)
-    print len(flag)
-    poller = zmq.Poller()
-    poller.register(trader.response, zmq.POLLIN)
-    poller.register(trader.publish, zmq.POLLIN)
-    poller.register(trader.threadResponse, zmq.POLLIN)
-    sockets = dict(poller.poll())
-
-
+    assert result[0] == 0
+    sleep(1)
+    assert len(flag) == 2
 
 

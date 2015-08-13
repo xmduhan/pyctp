@@ -282,7 +282,6 @@ class Trader :
                 poller.register(self.publish, zmq.POLLIN)
                 poller.register(self.threadResponse, zmq.POLLIN)
                 sockets = dict(poller.poll())
-                print u'收到%d消息' % len(sockets)
 
                 if self.threadResponse in sockets:
                     # 接收到来自进程的命令
@@ -306,13 +305,12 @@ class Trader :
                     else:
                         print u'接收到1条未知消息...'
                         continue
-                    print respInfoJson
 
                     respInfo = json.loads(respInfoJson)
                     parameters = respInfo['Parameters']
 
                     # 调用对应的回调函数
-                    self._callback(apiName,**parameters)
+                    self._callback(apiName,parameters)
             except Exception as e:
                 print e
 

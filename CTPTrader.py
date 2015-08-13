@@ -288,8 +288,12 @@ class Trader :
                     messageList = self.threadResponse.recv_multipart()
                     if messageList[1] == 'exit':
                         return
-                    if messageList[1] == 'hello':
-                        self.threadResponse.send_multipart([messageList[0],'hello'])
+                    if messageList[1] == 'echo':
+                        if len(messageList) >= 3:
+                            toSendBack = messageList[2]
+                        else:
+                            toSendBack = ''
+                        self.threadResponse.send_multipart([messageList[0],toSendBack])
                     continue
 
                 # 循环读取消息进程回调处理

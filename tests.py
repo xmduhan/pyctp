@@ -106,7 +106,7 @@ def test_communicate_working_thread():
     assert len(process.threads()) == 4
 
     # 测试hello命令的响应
-    trader._sendToThread(['hello'])
+    trader._sendToThread(['echo','hello'])
     messageList =trader._recvFromThread()
     assert messageList
     assert messageList[0] == 'hello'
@@ -135,19 +135,18 @@ def test_qry_trading_account():
 
     # 定义回调函数,并将其绑定
     def OnRspQryTradingAccount1(RequestID,RspInfo,Data,IsLast):
-        print 'OnRspQryTradingAccount is called'
+        print 'OnRspQryTradingAccount1 is called'
         #print kargs.keys()
         flag.append(1)
     trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount1)
 
     def OnRspQryTradingAccount2(**kargs):
-        print 'OnRspQryTradingAccount is called'
+        print 'OnRspQryTradingAccount2 is called'
         #print kargs.keys()
         flag.append(1)
     trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount2)
 
     # 发送一个请求并等待回调函数被调用
-    sleep(1)
     data = struct.CThostFtdcQryTradingAccountField()
     result = trader.ReqQryTradingAccount(data)
     assert result[0] == 0

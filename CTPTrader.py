@@ -30,6 +30,93 @@ def packageReqInfo(apiName,data):
 def mallocIpcAddress():
 	return 'ipc://%s' % tempfile.mktemp(suffix='.ipc',prefix='tmp_')
 
+
+
+class CallbackManager(object):
+    """
+    回调数据链管理
+    """
+
+    def __init__(self):
+        """
+        构造函数
+        """
+        # 初始化回调数据链
+        self.__callbackDict = {}
+        self.__callbackUuidDict = {}
+        self.__callbackLock = threading.RLock()
+
+
+    def bind(self,callbackName,funcToCall):
+        """
+        绑定回调函数
+        参数:
+        callbackName  回调函数名称，具体可用项在pyctp.callback模块中定义
+        funcToCall  需要绑定的回调函数，可以是函数也可以是实例方法
+        回调方法必须定义成以下结构:
+        def funcToCall(**kargs)
+        返回值:
+        如果绑定成功方法返回一个bindId,这个id可以用于解除绑定(unbind)时使用
+        """
+        self.__callbackLock.acquire()
+        try:
+            callbackUuid = uuid.uuid1()
+            self.__callbackUuidDict[callbackUuid] = {
+                'callbackName':callbackName,
+                'funcToCall' : funcToCall
+            }
+            if callbackName in self.__callbackDict.keys():
+                self.__callbackDict[callbackName].append(callbackUuid)
+            else:
+                self.__callbackDict[callbackName] = [callbackUuid]
+            return callbackUuid
+        finally:
+            self.__callbackLock.release()
+
+
+    def unbind(self,bindId):
+        """
+        解除回调函数的绑定
+        参数:
+        bindId 绑定回调函数时的返回值
+        返回值:
+        成功返回True，失败(或没有找到绑定项)返回False
+        """
+        self.__callbackLock.acquire()
+        try:
+            if bindId not in self.__callbackUuidDict.keys():
+                return False
+            callbackName = self.__callbackUuidDict[bindId]['callbackName']
+            self.__callbackDict[callbackName].remove(bindId)
+            self.__callbackUuidDict.pop(bindId)
+            return True
+        finally:
+            self.__callbackLock.release()
+
+
+    def callback(self,callbackName,args):
+        """
+        根据回调链调用已经绑定的所有回调函数，该函数主要提供给监听简称使用
+        参数:
+        callbackName  回调函数名称
+        args 用于传递给回调函数的参数(字典结构)
+        返回值:
+        无
+        """
+        self.__callbackLock.acquire()
+        try:
+            if callbackName not in self.__callbackDict.keys():
+                return
+            for callbackUuid in self.__callbackDict[callbackName]:
+                funcToCall = self.__callbackUuidDict[callbackUuid]['funcToCall']
+                try:
+                    funcToCall(**args)
+                except Exception as e:
+                    print e
+        finally:
+            self.__callbackLock.release()
+
+
 class Trader :
     """
     Trader通讯管道类,该类通过和CTPConverter的Trader进程通讯,对外实现python语言封装的CTP接口,
@@ -40,27 +127,32 @@ class Trader :
         检查ctp交易通道是否运行正常，该方法在构造函数内调用如果失败，构造函数会抛出异常
         成功返回True，失败返回False
         """
+
         flag = []
         def OnRspQryTradingAccount(**kargs):
             flag.append(1)
-        bindId = self.bind(callback.OnRspQryTradingAccount,OnRspQryTradingAccount)
-        data = CThostFtdcQryTradingAccountField()
-        error = 0
-        while True:
-            result = self.ReqQryTradingAccount(data)
-            if result[0] != 0:
-                return False
-            i = 0
-            while len(flag) == 0:
-                sleep(0.01)
-                i += 1
-                if i > 100:
-                    break
-            if len(flag) > 0:
-                return True
-            error += 1
-            if error > 3:
-                return False
+
+        bindId = self.__callbackManager.bind(callback.OnRspQryTradingAccount,OnRspQryTradingAccount)
+        try:
+            data = CThostFtdcQryTradingAccountField()
+            error = 0
+            while True:
+                result = self.ReqQryTradingAccount(data)
+                if result[0] != 0:
+                    return False
+                i = 0
+                while len(flag) == 0:
+                    sleep(0.01)
+                    i += 1
+                    if i > 100:
+                        break
+                if len(flag) > 0:
+                    return True
+                error += 1
+                if error > 3:
+                    return False
+        finally:
+            self.__callbackManager.unbind(bindId)
 
 
     def __delTraderProcess(self):
@@ -161,10 +253,8 @@ class Trader :
         threadResponse.bind(self.threadControlPipe)
         self.threadResponse = threadResponse
 
-        # 回调数据链
-        self._callbackDict = {}
-        self._callbackUuidDict = {}
-        self._callbackLock = threading.RLock()
+        # 创建回调链管理器
+        self.__callbackManager = CallbackManager()
 
         # 启动工作线程
         thread = threading.Thread(target=self._threadFunction)
@@ -203,73 +293,18 @@ class Trader :
 
 
     def bind(self,callbackName,funcToCall):
-        """
-        绑定回调函数
-        参数:
-        callbackName  回调函数名称，具体可用项在pyctp.callback模块中定义
-        funcToCall  需要绑定的回调函数，可以是函数也可以是实例方法
-        回调方法必须定义成以下结构:
-        def funcToCall(**kargs)
-        返回值:
-        如果绑定成功方法返回一个bindId,这个id可以用于解除绑定(unbind)时使用
-        """
-        self._callbackLock.acquire()
-        try:
-            callbackUuid = uuid.uuid1()
-            self._callbackUuidDict[callbackUuid] = {
-                'callbackName':callbackName,
-                'funcToCall' : funcToCall
-            }
-            if callbackName in self._callbackDict.keys():
-                self._callbackDict[callbackName].append(callbackUuid)
-            else:
-                self._callbackDict[callbackName] = [callbackUuid]
-            return callbackUuid
-        finally:
-            self._callbackLock.release()
+        """转调回调链管理器"""
+        return self.__callbackManager.bind(callbackName,funcToCall)
 
 
     def unbind(self,bindId):
-        """
-        解除回调函数的绑定
-        参数:
-        bindId 绑定回调函数时的返回值
-        返回值:
-        成功返回True，失败(或没有找到绑定项)返回False
-        """
-        self._callbackLock.acquire()
-        try:
-            if bindId not in self._callbackUuidDict.keys():
-                return False
-            callbackName = self._callbackUuidDict[bindId]['callbackName']
-            self._callbackDict[callbackName].remove(bindId)
-            self._callbackUuidDict.pop(bindId)
-            return True
-        finally:
-            self._callbackLock.release()
+        """转调回调管理器"""
+        return self.__callbackManager.unbind(bindId)
 
 
-    def _callback(self,callbackName,args):
-        """
-        根据回调链调用已经绑定的所有回调函数，该函数主要提供给监听简称使用
-        参数:
-        callbackName  回调函数名称
-        args 用于传递给回调函数的参数(字典结构)
-        返回值:
-        无
-        """
-        self._callbackLock.acquire()
-        try:
-            if callbackName not in self._callbackDict.keys():
-                return
-            for callbackUuid in self._callbackDict[callbackName]:
-                funcToCall = self._callbackUuidDict[callbackUuid]['funcToCall']
-                try:
-                    funcToCall(**args)
-                except Exception as e:
-                    print e
-        finally:
-            self._callbackLock.release()
+    def __callback(self,callbackName,args):
+        """转调回调管理器"""
+        return self.__callbackManager.callback(callbackName,args)
 
 
     def _sendToThread(self,messageList):
@@ -331,7 +366,6 @@ class Trader :
                     # 根据不同的消息类型提取回调名称和参数信息
                     if messageList[0] == 'RESPONSE':
                         apiName, respInfoJson = messageList[2:4]
-
                     elif messageList[0] == 'PUBLISH':
                         apiName, respInfoJson = messageList[1:3]
                     else:
@@ -342,7 +376,8 @@ class Trader :
                     parameters = respInfo['Parameters']
 
                     # 调用对应的回调函数
-                    self._callback(apiName,parameters)
+                    self.__callbackManager.callback(apiName,parameters)
+
             except Exception as e:
                 print e
 

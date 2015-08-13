@@ -4,11 +4,10 @@
 import os
 import psutil
 from time import sleep
-from CTPTrader import Trader
+from CTPTrader import Trader, CallbackManager
 from nose.plugins.attrib import attr
 import CTPCallback as callback
 import CTPStruct as struct
-import zmq
 
 frontAddress = None
 mdFrontAddress = None
@@ -68,26 +67,25 @@ def test_trader_bind_callback():
         flag = kargs['flag']
         flag.append(1)
 
-    global frontAddress, mdFrontAddress, brokerID, userID, password
-    trader = Trader(frontAddress, brokerID, userID, password)
-    bindId1 = trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount)
-    trader._callback(callback.OnRspQryTradingAccount, {'flag': flag})
+    callbackManager = CallbackManager()
+    bindId1 = callbackManager .bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount)
+    callbackManager.callback(callback.OnRspQryTradingAccount, {'flag': flag})
     assert len(flag) == 1
 
-    bindId2 = trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount)
-    trader._callback(callback.OnRspQryTradingAccount, {'flag': flag})
+    bindId2 = callbackManager .bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount)
+    callbackManager.callback(callback.OnRspQryTradingAccount, {'flag': flag})
     assert len(flag) == 3
 
-    assert trader.unbind(bindId1)
-    assert not trader.unbind(bindId1)
+    assert callbackManager .unbind(bindId1)
+    assert not callbackManager .unbind(bindId1)
 
-    trader._callback(callback.OnRspQryTradingAccount, {'flag': flag})
+    callbackManager.callback(callback.OnRspQryTradingAccount, {'flag': flag})
     assert len(flag) == 4
 
-    assert trader.unbind(bindId2)
-    assert not trader.unbind(bindId2)
+    assert callbackManager .unbind(bindId2)
+    assert not callbackManager .unbind(bindId2)
 
-    trader._callback(callback.OnRspQryTradingAccount, {'flag': flag})
+    callbackManager.callback(callback.OnRspQryTradingAccount, {'flag': flag})
     assert len(flag) == 4
 
 

@@ -11,6 +11,7 @@ from time import sleep
 from datetime import datetime,timedelta
 from ErrorResult import *
 import json
+from message import *
 
 def packageReqInfo(apiName,data):
 	"""
@@ -80,6 +81,7 @@ class Trader :
         self.pushbackPipe = mallocIpcAddress()
         self.publishPipe = mallocIpcAddress()
         self.threadControlPipe = mallocIpcAddress()
+        identity = str(uuid.uuid1())
 
         # 设置等待超时时间
         self.timeoutMillisecond = 1000 * timeout
@@ -112,12 +114,14 @@ class Trader :
 
 		# 创建请求通讯通道
         request = context.socket(zmq.DEALER)
+        request.setsockopt(zmq.IDENTITY,identity)
         request.connect(self.requestPipe)
         request.setsockopt(zmq.LINGER,0)
         self.request = request
 
         # 创建请求通讯通道
         response = context.socket(zmq.DEALER)
+        response.setsockopt(zmq.IDENTITY,identity)
         response.connect(self.responsePipe)
         response.setsockopt(zmq.LINGER,0)
         self.response = response
@@ -278,6 +282,7 @@ class Trader :
                 poller.register(self.publish, zmq.POLLIN)
                 poller.register(self.threadResponse, zmq.POLLIN)
                 sockets = dict(poller.poll())
+                print u'收到%d消息' % len(sockets)
 
                 if self.threadResponse in sockets:
                     # 接收到来自进程的命令
@@ -312,8 +317,6 @@ class Trader :
                 print e
 
         print u'监听线程退出...'
-
-
 
 {# 生成所有api的实现 -#}
 {%- for method in reqMethodDict.itervalues() -%}

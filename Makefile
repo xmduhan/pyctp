@@ -9,7 +9,7 @@ CTPStruct.py : template/CTPStruct.py.tpl
 	python generate.py CTPStruct.py.tpl
 
 
-CTPTrader.py : template/CTPTrader.py.tpl
+CTPTrader.py : template/CTPTrader.py.tpl template/ReqMethod.py.tpl
 	python generate.py CTPTrader.py.tpl
 
 

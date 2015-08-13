@@ -7,7 +7,8 @@ from time import sleep
 from CTPTrader import Trader
 from nose.plugins.attrib import attr
 import CTPCallback as callback
-
+import CTPStruct as struct
+import zmq
 
 frontAddress = None
 mdFrontAddress = None
@@ -101,7 +102,6 @@ def test_communicate_working_thread():
     process = psutil.Process()
     assert len(process.threads()) == 1
 
-
     trader = Trader(frontAddress, brokerID, userID, password)
     assert len(process.threads()) == 4
 
@@ -116,10 +116,39 @@ def test_communicate_working_thread():
     sleep(1)
     assert len(process.threads()) == 3
 
-    #
+    # 强迫对象进行垃圾回收
     trader = None
     sleep(1)
+    print len(process.threads())
     assert len(process.threads()) == 1
+
+
+@attr('test_qry_trading_account')
+def test_qry_trading_account():
+    # 创建trader对象
+    global frontAddress, mdFrontAddress, brokerID, userID, password
+    trader = Trader(frontAddress, brokerID, userID, password)
+
+    flag = []
+    def OnRspQryTradingAccount(**kargs):
+        print 'OnRspQryTradingAccount is called'
+        print kargs
+        flag.append(1)
+
+    trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount)
+    data = struct.CThostFtdcQryTradingAccountField()
+    result = trader.ReqQryTradingAccount(data)
+    print result
+    result = trader.ReqQryTradingAccount(data)
+    print result
+    sleep(3)
+    print len(flag)
+    poller = zmq.Poller()
+    poller.register(trader.response, zmq.POLLIN)
+    poller.register(trader.publish, zmq.POLLIN)
+    poller.register(trader.threadResponse, zmq.POLLIN)
+    sockets = dict(poller.poll())
+
 
 
 

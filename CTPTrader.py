@@ -11,6 +11,7 @@ from time import sleep
 from datetime import datetime,timedelta
 from ErrorResult import *
 import json
+from message import *
 
 def packageReqInfo(apiName,data):
 	"""
@@ -80,6 +81,7 @@ class Trader :
         self.pushbackPipe = mallocIpcAddress()
         self.publishPipe = mallocIpcAddress()
         self.threadControlPipe = mallocIpcAddress()
+        identity = str(uuid.uuid1())
 
         # 设置等待超时时间
         self.timeoutMillisecond = 1000 * timeout
@@ -112,12 +114,14 @@ class Trader :
 
 		# 创建请求通讯通道
         request = context.socket(zmq.DEALER)
+        request.setsockopt(zmq.IDENTITY,identity)
         request.connect(self.requestPipe)
         request.setsockopt(zmq.LINGER,0)
         self.request = request
 
         # 创建请求通讯通道
         response = context.socket(zmq.DEALER)
+        response.setsockopt(zmq.IDENTITY,identity)
         response.connect(self.responsePipe)
         response.setsockopt(zmq.LINGER,0)
         self.response = response
@@ -278,6 +282,7 @@ class Trader :
                 poller.register(self.publish, zmq.POLLIN)
                 poller.register(self.threadResponse, zmq.POLLIN)
                 sockets = dict(poller.poll())
+                print u'收到%d消息' % len(sockets)
 
                 if self.threadResponse in sockets:
                     # 接收到来自进程的命令
@@ -314,2454 +319,2552 @@ class Trader :
         print u'监听线程退出...'
 
 
+    def ReqQryTradingAccount(self,data):
+        """
+        请求查询资金账户
+        data 调用api需要填写参数表单,类型为CThostFtdcQryTradingAccountField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
 
-
-	def QryTradingAccount(self,data):
-		"""
-		请求查询资金账户
-		data 调用api需要填写参数表单,类型为CThostFtdcQryTradingAccountField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
-
-        # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryTradingAccountField):
-			return InvalidRequestFormat
-
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
-
-		# 发送到服务器
-		requestMessage.send(self.request)
-
-        # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
-
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
-
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
-
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
-
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
-
-
-	def QryCFMMCTradingAccountKey(self,data):
-		"""
-		请求查询保证金监管系统经纪公司资金账户密钥
-		data 调用api需要填写参数表单,类型为CThostFtdcQryCFMMCTradingAccountKeyField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+        requestApiName = 'ReqQryTradingAccount'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryCFMMCTradingAccountKeyField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryTradingAccountField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def UserPasswordUpdate(self,data):
-		"""
-		用户口令更新请求
-		data 调用api需要填写参数表单,类型为CThostFtdcUserPasswordUpdateField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryCFMMCTradingAccountKey(self,data):
+        """
+        请求查询保证金监管系统经纪公司资金账户密钥
+        data 调用api需要填写参数表单,类型为CThostFtdcQryCFMMCTradingAccountKeyField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryCFMMCTradingAccountKey'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcUserPasswordUpdateField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryCFMMCTradingAccountKeyField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryTradingNotice(self,data):
-		"""
-		请求查询交易通知
-		data 调用api需要填写参数表单,类型为CThostFtdcQryTradingNoticeField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqUserPasswordUpdate(self,data):
+        """
+        用户口令更新请求
+        data 调用api需要填写参数表单,类型为CThostFtdcUserPasswordUpdateField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqUserPasswordUpdate'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryTradingNoticeField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcUserPasswordUpdateField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryTrade(self,data):
-		"""
-		请求查询成交
-		data 调用api需要填写参数表单,类型为CThostFtdcQryTradeField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryTradingNotice(self,data):
+        """
+        请求查询交易通知
+        data 调用api需要填写参数表单,类型为CThostFtdcQryTradingNoticeField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryTradingNotice'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryTradeField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryTradingNoticeField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QueryMaxOrderVolume(self,data):
-		"""
-		查询最大报单数量请求
-		data 调用api需要填写参数表单,类型为CThostFtdcQueryMaxOrderVolumeField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryTrade(self,data):
+        """
+        请求查询成交
+        data 调用api需要填写参数表单,类型为CThostFtdcQryTradeField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryTrade'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQueryMaxOrderVolumeField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryTradeField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def SettlementInfoConfirm(self,data):
-		"""
-		投资者结算结果确认
-		data 调用api需要填写参数表单,类型为CThostFtdcSettlementInfoConfirmField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQueryMaxOrderVolume(self,data):
+        """
+        查询最大报单数量请求
+        data 调用api需要填写参数表单,类型为CThostFtdcQueryMaxOrderVolumeField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQueryMaxOrderVolume'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcSettlementInfoConfirmField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQueryMaxOrderVolumeField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryInvestorPosition(self,data):
-		"""
-		请求查询投资者持仓
-		data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorPositionField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqSettlementInfoConfirm(self,data):
+        """
+        投资者结算结果确认
+        data 调用api需要填写参数表单,类型为CThostFtdcSettlementInfoConfirmField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqSettlementInfoConfirm'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryInvestorPositionField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcSettlementInfoConfirmField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryBrokerTradingAlgos(self,data):
-		"""
-		请求查询经纪公司交易算法
-		data 调用api需要填写参数表单,类型为CThostFtdcQryBrokerTradingAlgosField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryInvestorPosition(self,data):
+        """
+        请求查询投资者持仓
+        data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorPositionField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryInvestorPosition'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryBrokerTradingAlgosField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryInvestorPositionField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryOrder(self,data):
-		"""
-		请求查询报单
-		data 调用api需要填写参数表单,类型为CThostFtdcQryOrderField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryBrokerTradingAlgos(self,data):
+        """
+        请求查询经纪公司交易算法
+        data 调用api需要填写参数表单,类型为CThostFtdcQryBrokerTradingAlgosField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryBrokerTradingAlgos'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryOrderField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryBrokerTradingAlgosField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryExchange(self,data):
-		"""
-		请求查询交易所
-		data 调用api需要填写参数表单,类型为CThostFtdcQryExchangeField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryOrder(self,data):
+        """
+        请求查询报单
+        data 调用api需要填写参数表单,类型为CThostFtdcQryOrderField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryOrder'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryExchangeField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryOrderField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def UserLogin(self,data):
-		"""
-		用户登录请求
-		data 调用api需要填写参数表单,类型为CThostFtdcReqUserLoginField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryExchange(self,data):
+        """
+        请求查询交易所
+        data 调用api需要填写参数表单,类型为CThostFtdcQryExchangeField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryExchange'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcReqUserLoginField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryExchangeField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def FromFutureToBankByFuture(self,data):
-		"""
-		期货发起期货资金转银行请求
-		data 调用api需要填写参数表单,类型为CThostFtdcReqTransferField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqUserLogin(self,data):
+        """
+        用户登录请求
+        data 调用api需要填写参数表单,类型为CThostFtdcReqUserLoginField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqUserLogin'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcReqTransferField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcReqUserLoginField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryExchangeRate(self,data):
-		"""
-		请求查询汇率
-		data 调用api需要填写参数表单,类型为CThostFtdcQryExchangeRateField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqFromFutureToBankByFuture(self,data):
+        """
+        期货发起期货资金转银行请求
+        data 调用api需要填写参数表单,类型为CThostFtdcReqTransferField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqFromFutureToBankByFuture'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryExchangeRateField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcReqTransferField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryInvestorPositionDetail(self,data):
-		"""
-		请求查询投资者持仓明细
-		data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorPositionDetailField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryExchangeRate(self,data):
+        """
+        请求查询汇率
+        data 调用api需要填写参数表单,类型为CThostFtdcQryExchangeRateField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryExchangeRate'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryInvestorPositionDetailField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryExchangeRateField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QrySettlementInfoConfirm(self,data):
-		"""
-		请求查询结算信息确认
-		data 调用api需要填写参数表单,类型为CThostFtdcQrySettlementInfoConfirmField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryInvestorPositionDetail(self,data):
+        """
+        请求查询投资者持仓明细
+        data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorPositionDetailField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryInvestorPositionDetail'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQrySettlementInfoConfirmField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryInvestorPositionDetailField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryBrokerTradingParams(self,data):
-		"""
-		请求查询经纪公司交易参数
-		data 调用api需要填写参数表单,类型为CThostFtdcQryBrokerTradingParamsField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQrySettlementInfoConfirm(self,data):
+        """
+        请求查询结算信息确认
+        data 调用api需要填写参数表单,类型为CThostFtdcQrySettlementInfoConfirmField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQrySettlementInfoConfirm'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryBrokerTradingParamsField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQrySettlementInfoConfirmField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QueryCFMMCTradingAccountToken(self,data):
-		"""
-		请求查询监控中心用户令牌
-		data 调用api需要填写参数表单,类型为CThostFtdcQueryCFMMCTradingAccountTokenField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryBrokerTradingParams(self,data):
+        """
+        请求查询经纪公司交易参数
+        data 调用api需要填写参数表单,类型为CThostFtdcQryBrokerTradingParamsField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryBrokerTradingParams'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQueryCFMMCTradingAccountTokenField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryBrokerTradingParamsField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryNotice(self,data):
-		"""
-		请求查询客户通知
-		data 调用api需要填写参数表单,类型为CThostFtdcQryNoticeField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQueryCFMMCTradingAccountToken(self,data):
+        """
+        请求查询监控中心用户令牌
+        data 调用api需要填写参数表单,类型为CThostFtdcQueryCFMMCTradingAccountTokenField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQueryCFMMCTradingAccountToken'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryNoticeField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQueryCFMMCTradingAccountTokenField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def FromBankToFutureByFuture(self,data):
-		"""
-		期货发起银行资金转期货请求
-		data 调用api需要填写参数表单,类型为CThostFtdcReqTransferField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryNotice(self,data):
+        """
+        请求查询客户通知
+        data 调用api需要填写参数表单,类型为CThostFtdcQryNoticeField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryNotice'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcReqTransferField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryNoticeField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def ParkedOrderInsert(self,data):
-		"""
-		预埋单录入请求
-		data 调用api需要填写参数表单,类型为CThostFtdcParkedOrderField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqFromBankToFutureByFuture(self,data):
+        """
+        期货发起银行资金转期货请求
+        data 调用api需要填写参数表单,类型为CThostFtdcReqTransferField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqFromBankToFutureByFuture'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcParkedOrderField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcReqTransferField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryInvestorPositionCombineDetail(self,data):
-		"""
-		请求查询投资者持仓明细
-		data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorPositionCombineDetailField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqParkedOrderInsert(self,data):
+        """
+        预埋单录入请求
+        data 调用api需要填写参数表单,类型为CThostFtdcParkedOrderField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqParkedOrderInsert'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryInvestorPositionCombineDetailField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcParkedOrderField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def OrderInsert(self,data):
-		"""
-		报单录入请求
-		data 调用api需要填写参数表单,类型为CThostFtdcInputOrderField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryInvestorPositionCombineDetail(self,data):
+        """
+        请求查询投资者持仓明细
+        data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorPositionCombineDetailField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryInvestorPositionCombineDetail'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcInputOrderField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryInvestorPositionCombineDetailField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QrySecAgentACIDMap(self,data):
-		"""
-		请求查询二级代理操作员银期权限
-		data 调用api需要填写参数表单,类型为CThostFtdcQrySecAgentACIDMapField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqOrderInsert(self,data):
+        """
+        报单录入请求
+        data 调用api需要填写参数表单,类型为CThostFtdcInputOrderField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqOrderInsert'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQrySecAgentACIDMapField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcInputOrderField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def ParkedOrderAction(self,data):
-		"""
-		预埋撤单录入请求
-		data 调用api需要填写参数表单,类型为CThostFtdcParkedOrderActionField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQrySecAgentACIDMap(self,data):
+        """
+        请求查询二级代理操作员银期权限
+        data 调用api需要填写参数表单,类型为CThostFtdcQrySecAgentACIDMapField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQrySecAgentACIDMap'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcParkedOrderActionField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQrySecAgentACIDMapField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QueryBankAccountMoneyByFuture(self,data):
-		"""
-		期货发起查询银行余额请求
-		data 调用api需要填写参数表单,类型为CThostFtdcReqQueryAccountField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqParkedOrderAction(self,data):
+        """
+        预埋撤单录入请求
+        data 调用api需要填写参数表单,类型为CThostFtdcParkedOrderActionField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqParkedOrderAction'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcReqQueryAccountField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcParkedOrderActionField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryParkedOrderAction(self,data):
-		"""
-		请求查询预埋撤单
-		data 调用api需要填写参数表单,类型为CThostFtdcQryParkedOrderActionField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQueryBankAccountMoneyByFuture(self,data):
+        """
+        期货发起查询银行余额请求
+        data 调用api需要填写参数表单,类型为CThostFtdcReqQueryAccountField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQueryBankAccountMoneyByFuture'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryParkedOrderActionField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcReqQueryAccountField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def Authenticate(self,data):
-		"""
-		客户端认证请求
-		data 调用api需要填写参数表单,类型为CThostFtdcReqAuthenticateField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryParkedOrderAction(self,data):
+        """
+        请求查询预埋撤单
+        data 调用api需要填写参数表单,类型为CThostFtdcQryParkedOrderActionField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryParkedOrderAction'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcReqAuthenticateField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryParkedOrderActionField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryExchangeMarginRate(self,data):
-		"""
-		请求查询交易所保证金率
-		data 调用api需要填写参数表单,类型为CThostFtdcQryExchangeMarginRateField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqAuthenticate(self,data):
+        """
+        客户端认证请求
+        data 调用api需要填写参数表单,类型为CThostFtdcReqAuthenticateField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqAuthenticate'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryExchangeMarginRateField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcReqAuthenticateField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def TradingAccountPasswordUpdate(self,data):
-		"""
-		资金账户口令更新请求
-		data 调用api需要填写参数表单,类型为CThostFtdcTradingAccountPasswordUpdateField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryExchangeMarginRate(self,data):
+        """
+        请求查询交易所保证金率
+        data 调用api需要填写参数表单,类型为CThostFtdcQryExchangeMarginRateField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryExchangeMarginRate'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcTradingAccountPasswordUpdateField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryExchangeMarginRateField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def UserLogout(self,data):
-		"""
-		登出请求
-		data 调用api需要填写参数表单,类型为CThostFtdcUserLogoutField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqTradingAccountPasswordUpdate(self,data):
+        """
+        资金账户口令更新请求
+        data 调用api需要填写参数表单,类型为CThostFtdcTradingAccountPasswordUpdateField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqTradingAccountPasswordUpdate'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcUserLogoutField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcTradingAccountPasswordUpdateField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryInstrument(self,data):
-		"""
-		请求查询合约
-		data 调用api需要填写参数表单,类型为CThostFtdcQryInstrumentField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqUserLogout(self,data):
+        """
+        登出请求
+        data 调用api需要填写参数表单,类型为CThostFtdcUserLogoutField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqUserLogout'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryInstrumentField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcUserLogoutField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def OrderAction(self,data):
-		"""
-		报单操作请求
-		data 调用api需要填写参数表单,类型为CThostFtdcInputOrderActionField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryInstrument(self,data):
+        """
+        请求查询合约
+        data 调用api需要填写参数表单,类型为CThostFtdcQryInstrumentField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryInstrument'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcInputOrderActionField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryInstrumentField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryInstrumentCommissionRate(self,data):
-		"""
-		请求查询合约手续费率
-		data 调用api需要填写参数表单,类型为CThostFtdcQryInstrumentCommissionRateField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqOrderAction(self,data):
+        """
+        报单操作请求
+        data 调用api需要填写参数表单,类型为CThostFtdcInputOrderActionField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqOrderAction'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryInstrumentCommissionRateField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcInputOrderActionField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryInstrumentMarginRate(self,data):
-		"""
-		请求查询合约保证金率
-		data 调用api需要填写参数表单,类型为CThostFtdcQryInstrumentMarginRateField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryInstrumentCommissionRate(self,data):
+        """
+        请求查询合约手续费率
+        data 调用api需要填写参数表单,类型为CThostFtdcQryInstrumentCommissionRateField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryInstrumentCommissionRate'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryInstrumentMarginRateField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryInstrumentCommissionRateField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryInvestor(self,data):
-		"""
-		请求查询投资者
-		data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryInstrumentMarginRate(self,data):
+        """
+        请求查询合约保证金率
+        data 调用api需要填写参数表单,类型为CThostFtdcQryInstrumentMarginRateField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryInstrumentMarginRate'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryInvestorField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryInstrumentMarginRateField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryExchangeMarginRateAdjust(self,data):
-		"""
-		请求查询交易所调整保证金率
-		data 调用api需要填写参数表单,类型为CThostFtdcQryExchangeMarginRateAdjustField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryInvestor(self,data):
+        """
+        请求查询投资者
+        data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryInvestor'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryExchangeMarginRateAdjustField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryInvestorField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryInvestorProductGroupMargin(self,data):
-		"""
-		请求查询投资者品种/跨品种保证金
-		data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorProductGroupMarginField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryExchangeMarginRateAdjust(self,data):
+        """
+        请求查询交易所调整保证金率
+        data 调用api需要填写参数表单,类型为CThostFtdcQryExchangeMarginRateAdjustField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryExchangeMarginRateAdjust'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryInvestorProductGroupMarginField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryExchangeMarginRateAdjustField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryEWarrantOffset(self,data):
-		"""
-		请求查询仓单折抵信息
-		data 调用api需要填写参数表单,类型为CThostFtdcQryEWarrantOffsetField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryInvestorProductGroupMargin(self,data):
+        """
+        请求查询投资者品种/跨品种保证金
+        data 调用api需要填写参数表单,类型为CThostFtdcQryInvestorProductGroupMarginField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryInvestorProductGroupMargin'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryEWarrantOffsetField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryInvestorProductGroupMarginField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryDepthMarketData(self,data):
-		"""
-		请求查询行情
-		data 调用api需要填写参数表单,类型为CThostFtdcQryDepthMarketDataField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryEWarrantOffset(self,data):
+        """
+        请求查询仓单折抵信息
+        data 调用api需要填写参数表单,类型为CThostFtdcQryEWarrantOffsetField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryEWarrantOffset'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryDepthMarketDataField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryEWarrantOffsetField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryTransferBank(self,data):
-		"""
-		请求查询转帐银行
-		data 调用api需要填写参数表单,类型为CThostFtdcQryTransferBankField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryDepthMarketData(self,data):
+        """
+        请求查询行情
+        data 调用api需要填写参数表单,类型为CThostFtdcQryDepthMarketDataField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryDepthMarketData'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryTransferBankField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryDepthMarketDataField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def RemoveParkedOrderAction(self,data):
-		"""
-		请求删除预埋撤单
-		data 调用api需要填写参数表单,类型为CThostFtdcRemoveParkedOrderActionField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryTransferBank(self,data):
+        """
+        请求查询转帐银行
+        data 调用api需要填写参数表单,类型为CThostFtdcQryTransferBankField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryTransferBank'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcRemoveParkedOrderActionField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryTransferBankField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryProduct(self,data):
-		"""
-		请求查询产品
-		data 调用api需要填写参数表单,类型为CThostFtdcQryProductField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqRemoveParkedOrderAction(self,data):
+        """
+        请求删除预埋撤单
+        data 调用api需要填写参数表单,类型为CThostFtdcRemoveParkedOrderActionField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqRemoveParkedOrderAction'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryProductField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcRemoveParkedOrderActionField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryTradingCode(self,data):
-		"""
-		请求查询交易编码
-		data 调用api需要填写参数表单,类型为CThostFtdcQryTradingCodeField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryProduct(self,data):
+        """
+        请求查询产品
+        data 调用api需要填写参数表单,类型为CThostFtdcQryProductField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryProduct'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryTradingCodeField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryProductField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QrySettlementInfo(self,data):
-		"""
-		请求查询投资者结算结果
-		data 调用api需要填写参数表单,类型为CThostFtdcQrySettlementInfoField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryTradingCode(self,data):
+        """
+        请求查询交易编码
+        data 调用api需要填写参数表单,类型为CThostFtdcQryTradingCodeField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryTradingCode'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQrySettlementInfoField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryTradingCodeField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryAccountregister(self,data):
-		"""
-		请求查询银期签约关系
-		data 调用api需要填写参数表单,类型为CThostFtdcQryAccountregisterField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQrySettlementInfo(self,data):
+        """
+        请求查询投资者结算结果
+        data 调用api需要填写参数表单,类型为CThostFtdcQrySettlementInfoField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQrySettlementInfo'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryAccountregisterField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQrySettlementInfoField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryParkedOrder(self,data):
-		"""
-		请求查询预埋单
-		data 调用api需要填写参数表单,类型为CThostFtdcQryParkedOrderField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryAccountregister(self,data):
+        """
+        请求查询银期签约关系
+        data 调用api需要填写参数表单,类型为CThostFtdcQryAccountregisterField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryAccountregister'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryParkedOrderField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryAccountregisterField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryTransferSerial(self,data):
-		"""
-		请求查询转帐流水
-		data 调用api需要填写参数表单,类型为CThostFtdcQryTransferSerialField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryParkedOrder(self,data):
+        """
+        请求查询预埋单
+        data 调用api需要填写参数表单,类型为CThostFtdcQryParkedOrderField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryParkedOrder'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryTransferSerialField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryParkedOrderField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def QryContractBank(self,data):
-		"""
-		请求查询签约银行
-		data 调用api需要填写参数表单,类型为CThostFtdcQryContractBankField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryTransferSerial(self,data):
+        """
+        请求查询转帐流水
+        data 调用api需要填写参数表单,类型为CThostFtdcQryTransferSerialField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryTransferSerial'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcQryContractBankField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryTransferSerialField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 
 
-	def RemoveParkedOrder(self,data):
-		"""
-		请求删除预埋单
-		data 调用api需要填写参数表单,类型为CThostFtdcRemoveParkedOrderField,具体参见其定义文件
-		返回信息格式[errorID,errorMsg,responseData=[...]]
-		"""
+    def ReqQryContractBank(self,data):
+        """
+        请求查询签约银行
+        data 调用api需要填写参数表单,类型为CThostFtdcQryContractBankField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqQryContractBank'
 
         # 检查表单数据的类型是否正确
-		if not isinstance(data,CThostFtdcRemoveParkedOrderField):
-			return InvalidRequestFormat
+        if not isinstance(data,CThostFtdcQryContractBankField):
+            return InvalidRequestFormat
 
-		# 打包消息格式
-		reqInfo = packageReqInfo(requestApiName,data.toDict())
-		metaData={}
-		requestMessage = RequestMessage()
-		requestMessage.header = 'REQUEST'
-		requestMessage.apiName = requestApiName
-		requestMessage.reqInfo = json.dumps(reqInfo)
-		requestMessage.metaData = json.dumps(metaData)
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
 
-		# 发送到服务器
-		requestMessage.send(self.request)
+        # 发送到服务器
+        requestMessage.send(self.request)
 
         # 等待服务器的REQUESTID响应
-		poller = zmq.Poller()
-		poller.register(self.request, zmq.POLLIN)
-		sockets = dict(poller.poll(self.timeoutMillisecond))
-		if not (self.request in sockets) :
-			return ResponseTimeOut
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
 
-		# 从request通讯管道读取返回信息
-		requestIDMessage = RequestIDMessage()
-		requestIDMessage.recv(self.request)
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
 
-		# 检查接收的消息格式
-		c1 = requestIDMessage.header == 'REQUESTID'
-		c2 = requestIDMessage.apiName == requestApiName
-		if not ( c1 and c2 ):
-			return InvalidMessageFormat
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
 
-		# 如果没有收到RequestID,返回转换器的出错信息
-		if not (int(requestIDMessage.requestID) > 0):
-			errorInfo = json.loads(requestIDMessage.errorInfo)
-			return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
 
-		# 返回成功
-		return 0,'',requestIDMessage.requestID
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
+
+
+    def ReqRemoveParkedOrder(self,data):
+        """
+        请求删除预埋单
+        data 调用api需要填写参数表单,类型为CThostFtdcRemoveParkedOrderField,具体参见其定义文件
+        返回信息格式[errorID,errorMsg,responseData=[...]]
+        """
+
+        requestApiName = 'ReqRemoveParkedOrder'
+
+        # 检查表单数据的类型是否正确
+        if not isinstance(data,CThostFtdcRemoveParkedOrderField):
+            return InvalidRequestFormat
+
+        # 打包消息格式
+        reqInfo = packageReqInfo(requestApiName,data.toDict())
+        metaData={}
+        requestMessage = RequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.metaData = json.dumps(metaData)
+
+        # 发送到服务器
+        requestMessage.send(self.request)
+
+        # 等待服务器的REQUESTID响应
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(self.timeoutMillisecond))
+        if not (self.request in sockets) :
+            return ResponseTimeOut
+
+        # 从request通讯管道读取返回信息
+        requestIDMessage = RequestIDMessage()
+        requestIDMessage.recv(self.request)
+
+        # 检查接收的消息格式
+        c1 = requestIDMessage.header == 'REQUESTID'
+        c2 = requestIDMessage.apiName == requestApiName
+        if not ( c1 and c2 ):
+            return InvalidMessageFormat
+
+        # 如果没有收到RequestID,返回转换器的出错信息
+        if not (int(requestIDMessage.requestID) > 0):
+            errorInfo = json.loads(requestIDMessage.errorInfo)
+            return errorInfo['ErrorID'],errorInfo['ErrorMsg'],None
+
+        # 返回成功
+        return 0,'',int(requestIDMessage.requestID)
 

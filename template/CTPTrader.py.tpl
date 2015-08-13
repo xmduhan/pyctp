@@ -12,6 +12,7 @@ from datetime import datetime,timedelta
 from ErrorResult import *
 import json
 from message import *
+import CTPCallback as callback
 
 def packageReqInfo(apiName,data):
 	"""
@@ -39,9 +40,27 @@ class Trader :
         检查ctp交易通道是否运行正常，该方法在构造函数内调用如果失败，构造函数会抛出异常
         成功返回True，失败返回False
         """
+        flag = []
+        def OnRspQryTradingAccount(**kargs):
+            flag.append(1)
+        bindId = self.bind(callback.OnRspQryTradingAccount,OnRspQryTradingAccount)
         data = CThostFtdcQryTradingAccountField()
-        result = self.QryTradingAccount(data)
-        return result[0] == 0
+        error = 0
+        while True:
+            result = self.ReqQryTradingAccount(data)
+            if result[0] != 0:
+                return False
+            i = 0
+            while len(flag) == 0:
+                sleep(0.01)
+                i += 1
+                if i > 100:
+                    break
+            if len(flag) > 0:
+                return True
+            error += 1
+            if error > 3:
+                return False
 
 
     def __delTraderProcess(self):
@@ -53,6 +72,7 @@ class Trader :
             self.traderProcess.kill()
             self.traderProcess.wait()
             del self.traderProcess
+
 
 
     def __init__(self,frontAddress,brokerID,userID,password,
@@ -150,6 +170,15 @@ class Trader :
         thread = threading.Thread(target=self._threadFunction)
         thread.daemon = True
         thread.start()
+
+        # 等待监听线程启动
+        self._sendToThread(['echo','ready'])
+        self._recvFromThread()
+
+        # 接口可用性测试如果失败阻止对象创建成功
+        if not self.__testChannel():
+            self.__delTraderProcess()
+            raise Exception(u'无法建立ctp连接,请查看ctp转换器的日志')
 
 
     def __enter__(self):
@@ -267,7 +296,6 @@ class Trader :
         if self.threadRequest not in sockets:
             return None
         return self.threadRequest.recv_multipart()
-
 
 
     def _threadFunction(self):

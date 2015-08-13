@@ -135,13 +135,13 @@ def test_qry_trading_account():
 
     # 定义回调函数,并将其绑定
     def OnRspQryTradingAccount1(RequestID,RspInfo,Data,IsLast):
-        print 'OnRspQryTradingAccount1 is called'
+        #print 'OnRspQryTradingAccount1 is called'
         #print kargs.keys()
         flag.append(1)
     trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount1)
 
     def OnRspQryTradingAccount2(**kargs):
-        print 'OnRspQryTradingAccount2 is called'
+        #print 'OnRspQryTradingAccount2 is called'
         #print kargs.keys()
         flag.append(1)
     trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount2)
@@ -150,7 +150,13 @@ def test_qry_trading_account():
     data = struct.CThostFtdcQryTradingAccountField()
     result = trader.ReqQryTradingAccount(data)
     assert result[0] == 0
-    sleep(1)
-    assert len(flag) == 2
+
+    # 等待回调函数被调用
+    i = 0
+    while len(flag) < 2:
+        sleep(.01)
+        i += 1
+        if i > 300 :
+            raise Exception(u'等待回调超时...')
 
 

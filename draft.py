@@ -11,15 +11,16 @@
 6. 去掉等待相关代码(okk)
 7. 是否还是要增加message.py 和 error.py(作为统一差错信息处理，因为现在md和trader的文件分开了)(ok)
 8. 将所有的响应函数映射到CTPCallback.py.tpl中(ok)
+9. 增加绑定函数(理解多线程问题)(ok)
+10. 构造函数中增加启动子进程轮询代码(ok)
+11. 修改reqMethond模板,仅保留请求部分(ok)
 """
 
 
 #%% 任务列表
 """
-
-. 增加绑定函数(理解多线程问题)(ok)
-. 构造函数中增加启动子进程轮询代码
-. 修改reqMethond模板,仅保留请求部分
+. 解决绑定后需要sleep(1)才能确保接收到信号的问题
+. 解决工作进程无法自动清理的问题(trader=None)
 . 解决转换器参数大小写不一致的问题
 """
 
@@ -61,17 +62,17 @@ from threading import Thread
 from time import sleep
 
 class A(object):
-    
+
     def test(self):
         sleep(5)
         print 'inner thread is exiting...'
-    
-    def __init__(self):                
+
+    def __init__(self):
         self.thread = Thread(target=self.test)
         self.thread.start()
-    
+
     def __del__(self):
-        print '__del__ is called...'        
+        print '__del__ is called...'
 
 a = A()
 a = None
@@ -84,17 +85,17 @@ def test():
     print 'thread is exiting...'
 
 class A(object):
-    
+
     def test(self):
         sleep(5)
         print 'inner thread is exiting...'
-    
-    def __init__(self):                
+
+    def __init__(self):
         self.thread = Thread(target=test)
         self.thread.start()
-    
+
     def __del__(self):
-        print '__del__ is called...'        
+        print '__del__ is called...'
 
 a = A()
 a = None

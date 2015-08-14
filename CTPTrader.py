@@ -117,64 +117,140 @@ class CallbackManager(object):
             self.__callbackLock.release()
 
 
-class Trader :
+class TraderWorker:
     """
-    Trader通讯管道类,该类通过和CTPConverter的Trader进程通讯,对外实现python语言封装的CTP接口,
+    Trader的监听线程
     """
 
-    def __testChannel(self):
+    def __init__(self, traderConventer, callbackManager):
         """
-        检查ctp交易通道是否运行正常，该方法在构造函数内调用如果失败，构造函数会抛出异常
-        成功返回True，失败返回False
+        构造函数
         """
+        # 绑定协议转换器和回调管理器实例
+        self.__traderConventer = traderConventer
+        self.__callbackManager = callbackManager
 
-        flag = []
-        def OnRspQryTradingAccount(**kargs):
-            flag.append(1)
+        # 分配通讯管道
+        self.controlPipe = mallocIpcAddress()
 
-        bindId = self.__callbackManager.bind(callback.OnRspQryTradingAccount,OnRspQryTradingAccount)
-        try:
-            data = CThostFtdcQryTradingAccountField()
-            error = 0
-            while True:
-                result = self.ReqQryTradingAccount(data)
-                if result[0] != 0:
-                    return False
-                i = 0
-                while len(flag) == 0:
-                    sleep(0.01)
-                    i += 1
-                    if i > 100:
-                        break
-                if len(flag) > 0:
-                    return True
-                error += 1
-                if error > 3:
-                    return False
-        finally:
-            self.__callbackManager.unbind(bindId)
+        # 创建zmq通讯环境
+        context = zmq.Context()
+
+        # 创建线程控制通讯管道
+        request = context.socket(zmq.DEALER)
+        request.connect(self.controlPipe)
+        request.setsockopt(zmq.LINGER,0)
+        self.request = request
+        response = context.socket(zmq.ROUTER)
+        response.bind(self.controlPipe)
+        self.response = response
+
+        # 创建线程并启动
+        thread = threading.Thread(target=self.__threadFunction)
+        thread.daemon = True
+        thread.start()
 
 
-    def __delTraderProcess(self):
+    def send(self,messageList):
         """
-        清除trader转换器进程
+        向线程发送一条命令消息
+        参数:
+        messageList  要发送的消息列表
+        返回值:无
         """
-
-        if hasattr(self, 'traderProcess'):
-            self.traderProcess.kill()
-            self.traderProcess.wait()
-            del self.traderProcess
+        self.request.send_multipart(messageList)
 
 
-
-    def __init__(self,frontAddress,brokerID,userID,password,
-        timeout=10,converterQueryInterval=1):
+    def recv(self,timeout=1000):
         """
-        初始化过程:
-        1.创建ctp转换器进程
-        2.创建和ctp通讯进程的通讯管道
-        3.测试ctp连接是否正常
-        如果ctp连接测试失败，将抛出异常阻止对象的创建
+        读取监听线程的返回消息
+        参数:
+        timeout  如果没有消息等待的时间(单位:毫秒)
+        返回值:
+        如果无法收到消息返回None,否则返回消息列表
+        """
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(timeout))
+        if self.request not in sockets:
+            return None
+        return self.request.recv_multipart()
+
+
+    def echo(self,message):
+        """
+        发送一个消息等待返回,用于测试线程已经处于监听状态
+        """
+        # 等待监听线程启动
+        self.__worker.send(['echo',message])
+        return self.__worker.recv()[0]
+
+
+    def exit(self):
+        """
+        通知工作进程需要退出,以便激活垃圾回释放资源
+        """
+        self.__worker.send(['exit'])
+
+
+    def __threadFunction(self):
+        """
+        监听线程的方法
+        """
+        while True:
+            try:
+                # 等待消息
+                poller = zmq.Poller()
+                poller.register(self.__traderConverter.response, zmq.POLLIN)
+                poller.register(self.__traderConventer.publish, zmq.POLLIN)
+                poller.register(self.response, zmq.POLLIN)
+                sockets = dict(poller.poll())
+
+                if self.response in sockets:
+                    # 接收到来自进程的命令
+                    messageList = self.response.recv_multipart()
+                    if messageList[1] == 'exit':
+                        return
+                    if messageList[1] == 'echo':
+                        if len(messageList) >= 3:
+                            toSendBack = messageList[2]
+                        else:
+                            toSendBack = ''
+                        self.response.send_multipart([messageList[0],toSendBack])
+                    continue
+
+                # 循环读取消息进程回调处理
+                for socket in sockets:
+                    # 读取消息
+                    messageList = socket.recv_multipart()
+                    # 根据不同的消息类型提取回调名称和参数信息
+                    if messageList[0] == 'RESPONSE':
+                        apiName, respInfoJson = messageList[2:4]
+                    elif messageList[0] == 'PUBLISH':
+                        apiName, respInfoJson = messageList[1:3]
+                    else:
+                        print u'接收到1条未知消息...'
+                        continue
+
+                    respInfo = json.loads(respInfoJson)
+                    parameters = respInfo['Parameters']
+
+                    # 调用对应的回调函数
+                    self.__callbackManager.callback(apiName,parameters)
+
+            except Exception as e:
+                print e
+
+        print u'监听线程退出...'
+
+
+class TraderConventer:
+    """
+    转换器进程对象封装,负责创建转换器的进程和进程的管理和回收
+    """
+    def __init__(self,frontAddress,brokerID,userID,password,timeout=10,converterQueryInterval=1):
+        """
+        构造函数
         参数:
         frontAddress   ctp服务器地址
         brokerID   代理商编号
@@ -192,7 +268,6 @@ class Trader :
         self.responsePipe = mallocIpcAddress()
         self.pushbackPipe = mallocIpcAddress()
         self.publishPipe = mallocIpcAddress()
-        self.threadControlPipe = mallocIpcAddress()
         identity = str(uuid.uuid1())
 
         # 设置等待超时时间
@@ -244,30 +319,98 @@ class Trader :
         publish.setsockopt_string(zmq.SUBSCRIBE,u'')
         self.publish = publish
 
-        # 创建线程控制通讯管道
-        threadRequest = context.socket(zmq.DEALER)
-        threadRequest.connect(self.threadControlPipe)
-        threadRequest.setsockopt(zmq.LINGER,0)
-        self.threadRequest = threadRequest
-        threadResponse = context.socket(zmq.ROUTER)
-        threadResponse.bind(self.threadControlPipe)
-        self.threadResponse = threadResponse
+
+    def __del__(self):
+        """
+        对象移除过程
+        1.结束ctp转换器进程
+        """
+        #print '__del__():被调用'
+        self.__clean__()
+
+
+    def __clean__(self):
+        """
+        清除trader转换器进程
+        """
+        if hasattr(self, 'traderProcess'):
+            self.traderProcess.kill()
+            self.traderProcess.wait()
+            del self.traderProcess
+
+
+class Trader :
+    """
+    Trader通讯管道类,该类通过和CTPConverter的Trader进程通讯,对外实现python语言封装的CTP接口,
+    """
+
+    def __testChannel(self):
+        """
+        检查ctp交易通道是否运行正常，该方法在构造函数内调用如果失败，构造函数会抛出异常
+        成功返回True，失败返回False
+        """
+
+        flag = []
+        def OnRspQryTradingAccount(**kargs):
+            flag.append(1)
+
+        bindId = self.bind(callback.OnRspQryTradingAccount,OnRspQryTradingAccount)
+        try:
+            data = CThostFtdcQryTradingAccountField()
+            error = 0
+            while True:
+                result = self.ReqQryTradingAccount(data)
+                if result[0] != 0:
+                    return False
+                i = 0
+                while len(flag) == 0:
+                    sleep(0.01)
+                    i += 1
+                    if i > 100:
+                        break
+                if len(flag) > 0:
+                    return True
+                error += 1
+                if error > 3:
+                    return False
+        finally:
+            self.unbind(bindId)
+
+
+    def __init__(self,frontAddress,brokerID,userID,password,timeout=10,converterQueryInterval=1):
+        """
+        初始化过程:
+        1.创建转换器进程对象
+        2.创建回到管理器
+        3.创建监听线程
+        如果ctp连接测试失败，将抛出异常阻止对象的创建
+        参数:
+        frontAddress   ctp服务器地址
+        brokerID   代理商编号
+        userID   用户编号
+        password   密码
+        queryInterval  查询间隔时间(单位:秒)
+        timeout 等待响应时间(单位:秒)
+        converterQueryInterval 转换器的流量控制时间间隔(单位:秒),默认为1
+        """
+
+        # 创建转换器进程
+        self.__traderConverter = TraderConventer(
+            frontAddress,brokerID,userID,password,timeout,converterQueryInterval
+        )
 
         # 创建回调链管理器
         self.__callbackManager = CallbackManager()
 
         # 启动工作线程
-        thread = threading.Thread(target=self._threadFunction)
-        thread.daemon = True
-        thread.start()
-
-        # 等待监听线程启动
-        self._sendToThread(['echo','ready'])
-        self._recvFromThread()
+        self.__worker = TraderWorker(self.__traderConverter,self.__callbackManager)
+        if self.__worker.echo('ready') != 'ready':
+            self.__clean__()
+            raise Exception(u'监听线程无法正常启动...')
 
         # 接口可用性测试如果失败阻止对象创建成功
         if not self.__testChannel():
-            self.__delTraderProcess()
+            self.__clean__()
             raise Exception(u'无法建立ctp连接,请查看ctp转换器的日志')
 
 
@@ -275,6 +418,14 @@ class Trader :
         """ 让Trader可以使用with语句 """
         #print '__enter__():被调用'
         return self
+
+
+    def __clean__(self):
+        """
+        资源释放处理
+        """
+        if hasattr(self, '__worker'):
+            self.__worker.exit()
 
 
     def __exit__(self, type, value, tb):
@@ -288,8 +439,7 @@ class Trader :
         对象移除过程
         1.结束ctp转换器进程
         """
-        #print '__del__():被调用'
-        self.__delTraderProcess()
+        self.__clean__()
 
 
     def bind(self,callbackName,funcToCall):
@@ -302,86 +452,7 @@ class Trader :
         return self.__callbackManager.unbind(bindId)
 
 
-    def __callback(self,callbackName,args):
-        """转调回调管理器"""
-        return self.__callbackManager.callback(callbackName,args)
 
-
-    def _sendToThread(self,messageList):
-        """
-        向线程发送一条命令消息
-        参数:
-        messageList  要发送的消息列表
-        返回值:无
-        """
-        self.threadRequest.send_multipart(messageList)
-
-
-    def _recvFromThread(self,timeout=1000):
-        """
-        读取监听线程的返回消息
-        参数:
-        timeout  如果没有消息等待的时间(单位:毫秒)
-        返回值:
-        如果无法收到消息返回None,否则返回消息列表
-        """
-        poller = zmq.Poller()
-        poller.register(self.threadRequest, zmq.POLLIN)
-        sockets = dict(poller.poll(timeout))
-        if self.threadRequest not in sockets:
-            return None
-        return self.threadRequest.recv_multipart()
-
-
-    def _threadFunction(self):
-        """
-        监听线程的方法
-        """
-        while True:
-            try:
-                # 等待消息
-                poller = zmq.Poller()
-                poller.register(self.response, zmq.POLLIN)
-                poller.register(self.publish, zmq.POLLIN)
-                poller.register(self.threadResponse, zmq.POLLIN)
-                sockets = dict(poller.poll())
-
-                if self.threadResponse in sockets:
-                    # 接收到来自进程的命令
-                    messageList = self.threadResponse.recv_multipart()
-                    if messageList[1] == 'exit':
-                        return
-                    if messageList[1] == 'echo':
-                        if len(messageList) >= 3:
-                            toSendBack = messageList[2]
-                        else:
-                            toSendBack = ''
-                        self.threadResponse.send_multipart([messageList[0],toSendBack])
-                    continue
-
-                # 循环读取消息进程回调处理
-                for socket in sockets:
-                    # 读取消息
-                    messageList = socket.recv_multipart()
-                    # 根据不同的消息类型提取回调名称和参数信息
-                    if messageList[0] == 'RESPONSE':
-                        apiName, respInfoJson = messageList[2:4]
-                    elif messageList[0] == 'PUBLISH':
-                        apiName, respInfoJson = messageList[1:3]
-                    else:
-                        print u'接收到1条未知消息...'
-                        continue
-
-                    respInfo = json.loads(respInfoJson)
-                    parameters = respInfo['Parameters']
-
-                    # 调用对应的回调函数
-                    self.__callbackManager.callback(apiName,parameters)
-
-            except Exception as e:
-                print e
-
-        print u'监听线程退出...'
 
 
     def ReqQryTradingAccount(self,data):

@@ -101,6 +101,8 @@ def test_communicate_working_thread():
     assert len(process.threads()) == 1
 
     trader = Trader(frontAddress, brokerID, userID, password)
+    sleep(20)
+    print len(process.threads())
     assert len(process.threads()) == 4
 
     # 测试hello命令的响应

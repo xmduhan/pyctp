@@ -22,18 +22,18 @@
         requestMessage.metaData = json.dumps(metaData)
 
         # 发送到服务器
-        requestMessage.send(self.request)
+        requestMessage.send(self.__traderConverter.request)
 
         # 等待服务器的REQUESTID响应
         poller = zmq.Poller()
-        poller.register(self.request, zmq.POLLIN)
+        poller.register(self.__traderConverter.request, zmq.POLLIN)
         sockets = dict(poller.poll(self.timeoutMillisecond))
-        if not (self.request in sockets) :
+        if not (self.__traderConverter.request in sockets) :
             return ResponseTimeOut
 
         # 从request通讯管道读取返回信息
         requestIDMessage = RequestIDMessage()
-        requestIDMessage.recv(self.request)
+        requestIDMessage.recv(self.__traderConverter.request)
 
         # 检查接收的消息格式
         c1 = requestIDMessage.header == 'REQUESTID'

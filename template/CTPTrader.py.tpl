@@ -122,12 +122,12 @@ class TraderWorker:
     Trader的监听线程
     """
 
-    def __init__(self, traderConventer, callbackManager):
+    def __init__(self, traderConverter, callbackManager):
         """
         构造函数
         """
         # 绑定协议转换器和回调管理器实例
-        self.__traderConventer = traderConventer
+        self.__traderConverter = traderConverter
         self.__callbackManager = callbackManager
 
         # 分配通讯管道
@@ -182,15 +182,15 @@ class TraderWorker:
         发送一个消息等待返回,用于测试线程已经处于监听状态
         """
         # 等待监听线程启动
-        self.__worker.send(['echo',message])
-        return self.__worker.recv()[0]
+        self.send(['echo',message])
+        return self.recv()[0]
 
 
     def exit(self):
         """
         通知工作进程需要退出,以便激活垃圾回释放资源
         """
-        self.__worker.send(['exit'])
+        self.send(['exit'])
 
 
     def __threadFunction(self):
@@ -202,7 +202,7 @@ class TraderWorker:
                 # 等待消息
                 poller = zmq.Poller()
                 poller.register(self.__traderConverter.response, zmq.POLLIN)
-                poller.register(self.__traderConventer.publish, zmq.POLLIN)
+                poller.register(self.__traderConverter.publish, zmq.POLLIN)
                 poller.register(self.response, zmq.POLLIN)
                 sockets = dict(poller.poll())
 
@@ -244,7 +244,7 @@ class TraderWorker:
         print u'监听线程退出...'
 
 
-class TraderConventer:
+class TraderConverter:
     """
     转换器进程对象封装,负责创建转换器的进程和进程的管理和回收
     """
@@ -395,16 +395,19 @@ class Trader :
         """
 
         # 创建转换器进程
-        self.__traderConverter = TraderConventer(
+        self.__traderConverter = TraderConverter(
             frontAddress,brokerID,userID,password,timeout,converterQueryInterval
         )
+
+        # 设置等待超时时间
+        self.timeoutMillisecond = 1000 * timeout
 
         # 创建回调链管理器
         self.__callbackManager = CallbackManager()
 
         # 启动工作线程
-        self.__worker = TraderWorker(self.__traderConverter,self.__callbackManager)
-        if self.__worker.echo('ready') != 'ready':
+        self.__traderWorker = TraderWorker(self.__traderConverter,self.__callbackManager)
+        if self.__traderWorker.echo('ready') != 'ready':
             self.__clean__()
             raise Exception(u'监听线程无法正常启动...')
 
@@ -424,8 +427,8 @@ class Trader :
         """
         资源释放处理
         """
-        if hasattr(self, '__worker'):
-            self.__worker.exit()
+        if hasattr(self, '__traderWorker'):
+            self.__traderWorker.exit()
 
 
     def __exit__(self, type, value, tb):

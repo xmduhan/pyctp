@@ -4,7 +4,8 @@
 import os
 import psutil
 from time import sleep
-from CTPTrader import Trader, CallbackManager
+from CTPTrader import Trader, CallbackManager, TraderWorker, TraderConverter
+import CTPTrader
 from nose.plugins.attrib import attr
 import CTPCallback as callback
 import CTPStruct as struct
@@ -46,7 +47,7 @@ def test_trader_process_create_and_clean():
 
     # 创建后可以找到一个trader进程
     trader = Trader(frontAddress, brokerID, userID, password)
-    pid = trader.traderProcess.pid
+    pid = trader.getConverterPid()
     assert pid and pid != 0
     assert pid in [child.pid for child in process.children()]
 
@@ -94,33 +95,33 @@ def test_communicate_working_thread():
     """
     测试和监听进程进行通讯
     """
-    global frontAddress, mdFrontAddress, brokerID, userID, password
-
     # 初始化进程检测工具对象
     process = psutil.Process()
-    assert len(process.threads()) == 1
+    print 'len(process.threads()) =', len(process.threads())
 
-    trader = Trader(frontAddress, brokerID, userID, password)
-    sleep(20)
-    print len(process.threads())
-    assert len(process.threads()) == 4
+    # 创建一个traderWorker
+    global frontAddress, mdFrontAddress, brokerID, userID, password
+    traderConverter = TraderConverter(frontAddress, brokerID, userID, password)
+    callbackManager = CallbackManager()
+    nThread = len(process.threads())
+    print 'len(process.threads()) =', len(process.threads())
+    assert nThread > 1
+
+    traderWorker = TraderWorker(traderConverter, callbackManager)
+    print 'len(process.threads()) =', len(process.threads())
+    assert len(process.threads()) == nThread + 1
 
     # 测试hello命令的响应
-    trader._sendToThread(['echo','hello'])
-    messageList =trader._recvFromThread()
+    traderWorker.send(['echo', 'hello'])
+    messageList = traderWorker.recv()
     assert messageList
     assert messageList[0] == 'hello'
 
     # 测试线程退出命令的相应
-    trader._sendToThread(['exit'])
+    traderWorker.send(['exit'])
     sleep(1)
-    assert len(process.threads()) == 3
-
-    # 强迫对象进行垃圾回收
-    trader = None
-    sleep(1)
-    print len(process.threads())
-    assert len(process.threads()) == 1
+    print 'len(process.threads()) =', len(process.threads())
+    assert len(process.threads()) == nThread
 
 
 @attr('test_qry_trading_account')

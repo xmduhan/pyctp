@@ -13,6 +13,11 @@ from ErrorResult import *
 import json
 from message import *
 import CTPCallback as callback
+import psutil
+
+
+
+context = zmq.Context()
 
 def packageReqInfo(apiName,data):
 	"""
@@ -133,10 +138,8 @@ class TraderWorker:
         # 分配通讯管道
         self.controlPipe = mallocIpcAddress()
 
-        # 创建zmq通讯环境
-        context = zmq.Context()
-
         # 创建线程控制通讯管道
+        global context
         request = context.socket(zmq.DEALER)
         request.connect(self.controlPipe)
         request.setsockopt(zmq.LINGER,0)
@@ -243,6 +246,9 @@ class TraderWorker:
 
         print u'监听线程退出...'
 
+    def __del__(self):
+        pass
+
 
 class TraderConverter:
     """
@@ -293,13 +299,10 @@ class TraderConverter:
 		# 创建转换器子进程
         fileOutput = os.path.join(self.workdir,'trader.log')
         traderStdout = open(fileOutput, 'w')
-        self.traderProcess = subprocess.Popen(commandLine,stdout=traderStdout,cwd=self.workdir)
-
-		# 创建zmq通讯环境
-        context = zmq.Context()
-        self.context = context
+        self.__process = subprocess.Popen(commandLine,stdout=traderStdout,cwd=self.workdir)
 
 		# 创建请求通讯通道
+        global context
         request = context.socket(zmq.DEALER)
         request.setsockopt(zmq.IDENTITY,identity)
         request.connect(self.requestPipe)
@@ -325,7 +328,6 @@ class TraderConverter:
         对象移除过程
         1.结束ctp转换器进程
         """
-        #print '__del__():被调用'
         self.__clean__()
 
 
@@ -333,10 +335,18 @@ class TraderConverter:
         """
         清除trader转换器进程
         """
-        if hasattr(self, 'traderProcess'):
-            self.traderProcess.kill()
-            self.traderProcess.wait()
-            del self.traderProcess
+        attrName = '_%s__%s' % (self.__class__.__name__, 'process')
+        if attrName in self.__dict__.keys():
+            self.__process.kill()
+            self.__process.wait()
+            del self.__process
+
+
+    def getPid(self):
+        """
+        获取转化器进程的pid
+        """
+        return self.__process.pid
 
 
 class Trader :
@@ -419,7 +429,6 @@ class Trader :
 
     def __enter__(self):
         """ 让Trader可以使用with语句 """
-        #print '__enter__():被调用'
         return self
 
 
@@ -427,13 +436,14 @@ class Trader :
         """
         资源释放处理
         """
-        if hasattr(self, '__traderWorker'):
+        #if hasattr(self, '__traderWorker'):
+        attrName = '_%s__%s' % (self.__class__.__name__, 'traderWorker')
+        if attrName in self.__dict__.keys():
             self.__traderWorker.exit()
-
+            del self.__traderWorker
 
     def __exit__(self, type, value, tb):
         """ 让Trader可以使用with语句 """
-        #print '__exit__():被调用',type,value,tb
         pass
 
 
@@ -455,6 +465,11 @@ class Trader :
         return self.__callbackManager.unbind(bindId)
 
 
+    def getConverterPid(self):
+        """
+        获取转换器的进程标识
+        """
+        return self.__traderConverter.getPid()
 
 
 {# 生成所有api的实现 -#}

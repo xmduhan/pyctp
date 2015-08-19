@@ -8,110 +8,127 @@ import uuid
 import json
 import subprocess
 from CTPStruct import *
+from CTPUtil import CallbackManager,mallocIpcAddress,packageReqInfo
+
 
 context = zmq.Context()
 
 
-def packageReqInfo(apiName,data):
-	"""
-	获取一个默认的调用结构
-	"""
-	reqInfo = {}
-	reqInfo['RequestMethod'] = apiName
-	parameters = {}
-	reqInfo['Parameters'] = parameters
-	parameters['Data'] = data
-	return reqInfo
-
-#def mallocIpcAddress():
-#	return 'ipc://%s/%s' % (tempfile.gettempdir(),uuid.uuid1())
-def mallocIpcAddress():
-	return 'ipc://%s' % tempfile.mktemp(suffix='.ipc',prefix='tmp_')
-
-
-class CallbackManager(object):
+class MdWorker:
     """
-    回调数据链管理
+    Md 工作线程
     """
-
-    def __init__(self):
+    def __init__(self,mdConverter,callbackManager):
         """
-        构造函数
         """
-        # 初始化回调数据链
-        self.__callbackDict = {}
-        self.__callbackUuidDict = {}
-        self.__callbackLock = threading.RLock()
+        # 绑定协议管理器和回调管理器实例
+        self.__mdConverter = mdConverter
+        self.__callbackManager = callbackManager
 
+        # 分配通讯管道
+        self.controlPipe = mallocIpcAddress()
 
-    def bind(self,callbackName,funcToCall):
+        # 创建线程控制通讯管道
+        global context
+        request = context.socket(zmq.DEALER)
+        request.connect(self.controlPipe)
+        request.setsockopt(zmq.LINGER,0)
+        self.request = request
+        response = context.socket(zmq.ROUTER)
+        response.bind(self.controlPipe)
+        self.response = response
+
+        # 创建线程并启动
+        thread = threading.Thread(target=self.__threadFunction)
+        thread.daemon = True
+        thread.start()
+        self.__thread = thread
+
+    def send(self,messageList):
         """
-        绑定回调函数
+        向线程发送一条命令消息
         参数:
-        callbackName  回调函数名称，具体可用项在pyctp.callback模块中定义
-        funcToCall  需要绑定的回调函数，可以是函数也可以是实例方法
-        回调方法必须定义成以下结构:
-        def funcToCall(**kargs)
-        返回值:
-        如果绑定成功方法返回一个bindId,这个id可以用于解除绑定(unbind)时使用
+        messageList  要发送的消息列表
+        返回值:无
         """
-        self.__callbackLock.acquire()
-        try:
-            callbackUuid = uuid.uuid1()
-            self.__callbackUuidDict[callbackUuid] = {
-                'callbackName':callbackName,
-                'funcToCall' : funcToCall
-            }
-            if callbackName in self.__callbackDict.keys():
-                self.__callbackDict[callbackName].append(callbackUuid)
-            else:
-                self.__callbackDict[callbackName] = [callbackUuid]
-            return callbackUuid
-        finally:
-            self.__callbackLock.release()
+        self.request.send_multipart(messageList)
 
-
-    def unbind(self,bindId):
+    def recv(self,timeout=1000):
         """
-        解除回调函数的绑定
+        读取监听线程的返回消息
         参数:
-        bindId 绑定回调函数时的返回值
+        timeout  如果没有消息等待的时间(单位:毫秒)
         返回值:
-        成功返回True，失败(或没有找到绑定项)返回False
+        如果无法收到消息返回None,否则返回消息列表
         """
-        self.__callbackLock.acquire()
-        try:
-            if bindId not in self.__callbackUuidDict.keys():
-                return False
-            callbackName = self.__callbackUuidDict[bindId]['callbackName']
-            self.__callbackDict[callbackName].remove(bindId)
-            self.__callbackUuidDict.pop(bindId)
-            return True
-        finally:
-            self.__callbackLock.release()
+        poller = zmq.Poller()
+        poller.register(self.request, zmq.POLLIN)
+        sockets = dict(poller.poll(timeout))
+        if self.request not in sockets:
+            return None
+        return self.request.recv_multipart()
 
-
-    def callback(self,callbackName,args):
+    def echo(self,message):
         """
-        根据回调链调用已经绑定的所有回调函数，该函数主要提供给监听简称使用
-        参数:
-        callbackName  回调函数名称
-        args 用于传递给回调函数的参数(字典结构)
-        返回值:
-        无
+        发送一个消息等待返回,用于测试线程已经处于监听状态
         """
-        self.__callbackLock.acquire()
-        try:
-            if callbackName not in self.__callbackDict.keys():
-                return
-            for callbackUuid in self.__callbackDict[callbackName]:
-                funcToCall = self.__callbackUuidDict[callbackUuid]['funcToCall']
-                try:
-                    funcToCall(**args)
-                except Exception as e:
-                    print e
-        finally:
-            self.__callbackLock.release()
+        # 等待监听线程启动
+        self.send(['echo',message])
+        return self.recv()[0]
+
+    def exit(self):
+        """
+        通知工作进程需要退出,以便激活垃圾回释放资源
+        """
+        self.send(['exit'])
+
+    def __threadFunction(self):
+        """
+        监听线程的方法
+        """
+        while True:
+            try:
+                # 等待消息
+                poller = zmq.Poller()
+                poller.register(self.__mdConverter.response, zmq.POLLIN)
+                poller.register(self.__mdConverter.publish, zmq.POLLIN)
+                poller.register(self.response, zmq.POLLIN)
+                sockets = dict(poller.poll())
+
+                if self.response in sockets:
+                    # 接收到来自进程的命令
+                    messageList = self.response.recv_multipart()
+                    if messageList[1] == 'exit':
+                        return
+                    if messageList[1] == 'echo':
+                        if len(messageList) >= 3:
+                            toSendBack = messageList[2]
+                        else:
+                            toSendBack = ''
+                        self.response.send_multipart([messageList[0],toSendBack])
+                    continue
+
+                # 循环读取消息进程回调处理
+                for socket in sockets:
+                    # 读取消息
+                    messageList = socket.recv_multipart()
+                    # 根据不同的消息类型提取回调名称和参数信息
+                    if messageList[0] == 'PUBLISH':
+                        apiName, respInfoJson = messageList[1:3]
+                    else:
+                        print u'接收到1条未知消息...'
+                        continue
+
+                    respInfo = json.loads(respInfoJson)
+                    parameters = respInfo['Parameters']
+
+                    # 调用对应的回调函数
+                    self.__callbackManager.callback(apiName,parameters)
+
+            except Exception as e:
+                print e
+
+        print u'监听线程退出...'
 
 
 
@@ -119,7 +136,13 @@ class CallbackManager(object):
 
 
 
-class Md :
+class MdConverter:
+    """
+    """
+    pass
+
+
+class Md:
 	"""
 	Md通讯管道类,该类通过和CTPConverter的Md(行情)进程通讯,实线行情数据的传送
 	"""

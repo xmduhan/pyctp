@@ -24,6 +24,7 @@
 
 #%% 任务列表
 """
+. 编写md的基础测试用例
 . 按Trader模式来封装md
 . 要增加MdRequestMessage和MdResponseMessage
 . callback 列表中要加入md的函数名称，可以通过union trader.methodDict 和 md.methodDict(ok)

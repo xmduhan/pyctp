@@ -25,6 +25,8 @@
 #%% 任务列表
 """
 . 按Trader模式来封装md
+. 要增加MdRequestMessage和MdResponseMessage
+. callback 列表中要加入md的函数名称，可以通过union trader.methodDict 和 md.methodDict(ok)
 . 解决转换器参数大小写不一致的问题
 """
 

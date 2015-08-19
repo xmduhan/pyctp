@@ -97,3 +97,11 @@ OnErrRtnRepealBankToFutureByFutureManual = 'OnErrRtnRepealBankToFutureByFutureMa
 OnErrRtnBankToFutureByFuture = 'OnErrRtnBankToFutureByFuture'
 OnErrRtnQueryBankBalanceByFuture = 'OnErrRtnQueryBankBalanceByFuture'
 OnErrRtnOrderAction = 'OnErrRtnOrderAction'
+
+
+###################################
+#   行情接口中用到的回调方法      #
+###################################
+OnRspSubMarketData = 'OnRspSubMarketData'
+OnRspUnSubMarketData = 'OnRspUnSubMarketData'
+OnRtnDepthMarketData = 'OnRtnDepthMarketData'

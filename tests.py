@@ -5,7 +5,7 @@ import os
 import psutil
 from time import sleep
 from CTPTrader import Trader, CallbackManager, TraderWorker, TraderConverter
-import CTPTrader
+from CTPMd import Md
 from nose.plugins.attrib import attr
 import CTPCallback as callback
 import CTPStruct as struct
@@ -159,5 +159,12 @@ def test_qry_trading_account():
         i += 1
         if i > 300 :
             raise Exception(u'等待回调超时...')
+
+
+def test_subcribe_depth_market_data():
+    """
+    测试订阅行情
+    """
+    pass
 
 

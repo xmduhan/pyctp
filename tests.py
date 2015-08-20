@@ -9,6 +9,10 @@ from CTPMd import Md
 from nose.plugins.attrib import attr
 import CTPCallback as callback
 import CTPStruct as struct
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+import CTPCallback as callback
+
 
 frontAddress = None
 mdFrontAddress = None
@@ -161,10 +165,36 @@ def test_qry_trading_account():
             raise Exception(u'等待回调超时...')
 
 
+@attr('test_subcribe_depth_market_data')
 def test_subcribe_depth_market_data():
     """
     测试订阅行情
     """
-    pass
+    def getDefaultInstrumentID(months=1):
+        return datetime.strftime(datetime.now() + relativedelta(months=months),"IF%y%m")
+
+    f1 = []
+    def OnRspSubMarketData(**kwargs):
+        print 'OnRspSubMarketData() is called'
+        f1.append(1)
+
+    f2 = []
+    def OnRtnDepthMarketData(**kwargs):
+        print 'OnRtnDepthMarketData() is called'
+        f2.append(1)
+
+    # 创建md对象
+    global frontAddress, mdFrontAddress, brokerID, userID, password
+    md = Md(mdFrontAddress, brokerID, userID, password)
+
+    md.bind(callback.OnRspSubMarketData, OnRspSubMarketData)
+    md.bind(callback.OnRtnDepthMarketData, OnRtnDepthMarketData)
+    md.SubscribeMarketData([getDefaultInstrumentID()])
+    sleep(2)
+
+    print 'len(f1) =', len(f1)
+    assert len(f1) > 0
+    print 'len(f2) =', len(f2)
+    assert len(f2) > 0
 
 

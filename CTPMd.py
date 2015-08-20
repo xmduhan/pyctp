@@ -9,7 +9,11 @@ import json
 import subprocess
 from CTPStruct import *
 from CTPUtil import CallbackManager,mallocIpcAddress,packageReqInfo
-
+from message import *
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+import CTPCallback as callback
+from time import sleep
 
 context = zmq.Context()
 
@@ -90,7 +94,6 @@ class MdWorker:
             try:
                 # 等待消息
                 poller = zmq.Poller()
-                poller.register(self.__mdConverter.response, zmq.POLLIN)
                 poller.register(self.__mdConverter.publish, zmq.POLLIN)
                 poller.register(self.response, zmq.POLLIN)
                 sockets = dict(poller.poll())
@@ -131,154 +134,249 @@ class MdWorker:
         print u'监听线程退出...'
 
 
-
-
-
-
-
 class MdConverter:
     """
+    md转换器封装
     """
-    pass
+
+    def __init__(self,frontAddress,brokerID,userID,password):
+        """
+        1.创建ctp转换器进程
+        2.创建和ctp通讯进程的通讯管道
+        3.测试ctp连接是否正常
+        参数:
+        frontAddress   ctp服务器地址
+        brokerID   代理商Id
+        userID   用户Id
+        password   密码
+        """
+        # 创建临时工作目录
+        self.workdir = tempfile.mkdtemp()
+
+        # 为ctp md转换器分配通讯管道地址
+        self.requestPipe = mallocIpcAddress()
+        self.pushbackPipe = mallocIpcAddress()
+        self.publishPipe = mallocIpcAddress()
+
+        # 构造调用命令
+        commandLine = ['md',
+        '--FrontAddress',frontAddress,
+        '--BrokerID',brokerID,
+        '--UserID',userID,
+        '--Password', password,
+        '--RequestPipe', self.requestPipe,
+        '--PushbackPipe', self.pushbackPipe,
+        '--PublishPipe', self.publishPipe,
+        '--loyalty'
+        ]
+
+        # 创建转换器子进程
+        fileOutput = os.path.join(self.workdir,'md.log')
+        mdStdout = open(fileOutput, 'w')
+        self.__process = subprocess.Popen(commandLine,stdout=mdStdout,cwd=self.workdir)
+
+        # 创建接受行情数据的管道
+        global context
+        self.context = context
+
+        # 创建请求通讯管道
+        request = context.socket(zmq.REQ)
+        request.connect(self.requestPipe)
+        request.setsockopt(zmq.LINGER,0)
+        self.request = request
+
+        #创建订阅管道
+        publish = context.socket(zmq.SUB)
+        publish.connect(self.publishPipe)
+        publish.setsockopt(zmq.SUBSCRIBE, '');
+        self.publish = publish
+
+
+    def __del__(self):
+        """
+        对象移除前处理,要清除转换器进程
+        """
+        self.__clean__()
+
+
+    def __clean__(self):
+        """
+        清楚md转换器进程
+        """
+        attrName = '_%s__%s' % (self.__class__.__name__, 'process')
+        if attrName in self.__dict__.keys():
+            self.__process.kill()
+            self.__process.wait()
+            del self.__process
+
+
+    def getPid(self):
+        """
+        获取转化器进程的pid
+        """
+        return self.__process.pid
 
 
 class Md:
-	"""
-	Md通讯管道类,该类通过和CTPConverter的Md(行情)进程通讯,实线行情数据的传送
-	"""
+    """
+    Md通讯管道类,该类通过和CTPConverter的Md(行情)进程通讯,实线行情数据的传送
+    """
+
+    def __testChannel(self):
+        """
+        检查和ctp md 进程是否连通
+        这里假设了在没有订阅的情况下调用取消订阅也能成功
+        """
+        flag = []
+
+        def OnRspUnSubMarketData(**kwargs):
+            flag.append(1)
+
+        def getDefaultInstrumentID(months=1):
+            return datetime.strftime(datetime.now() + relativedelta(months=months),"IF%y%m")
+
+        bindId = self.bind(callback.OnRspUnSubMarketData,OnRspUnSubMarketData)
+        try:
+            data = [getDefaultInstrumentID()]
+            error = 0
+            while True:
+                result = self.UnSubscribeMarketData(data)
+                if result[0] != 0:
+                    return False
+                i = 0
+                while len(flag) == 0:
+                    sleep(0.01)
+                    i += 1
+                    if i > 100:
+                        break
+                if len(flag) > 0:
+                    return True
+                error += 1
+                if error > 3:
+                    return False
+        finally:
+            self.unbind(bindId)
 
 
 
-	def __testChannel(self):
-		"""
-		检查和ctp md 进程是否连通
-		在md进程启动后会先发送一个空消息,提供测试通路使用
-		"""
-		# 由于zmq publisher需要等待客户端连接，这里等待相应时间才能接受到消息
-		timeout = 2000
-		reader = self.reader
-		poller = zmq.Poller()
-		poller.register(reader, zmq.POLLIN)
-		sockets = dict(poller.poll(timeout))
-		if reader in sockets :
-			result = reader.recv_multipart()
-			if len(result) == 1 and result[0] == "":
-				return True
-			else:
-				self.__delTraderProcess()
-				raise Exception(u'接收到不正确的消息格式')
-		else:
-			return False
+    def __init__(self,frontAddress,brokerID,userID,password):
+        """
+        1.创建ctp转换器进程
+        2.创建和ctp通讯进程的通讯管道
+        3.测试ctp连接是否正常
+        参数:
+        frontAddress   ctp服务器地址
+        brokerID   代理商Id
+        userID   用户Id
+        password   密码
+        """
+        # 创建md转换器
+        self.__mdConverter = MdConverter(
+            frontAddress,brokerID,userID,password
+        )
+
+        # 创建回调链管理器
+        self.__callbackManager = CallbackManager()
+
+        # 创建工作线程
+        self.__mdWorker = MdWorker(self.__mdConverter,self.__callbackManager)
+        if self.__mdWorker.echo('ready') != 'ready':
+            self.__clean__()
+            raise Exception(u'监听线程无法正常启动...')
+
+        # 接口可用性测试如果失败阻止对象创建成功
+        if not self.__testChannel():
+            self.__clean__()
+            raise Exception(u'无法建立ctp连接,请查看ctp转换器的日志')
 
 
-
-	def __delTraderProcess(self):
-		"""
-		清除trader转换器进程
-		"""
-		if hasattr(self, 'mdProcess'):
-			self.mdProcess.kill()
-			self.mdProcess.wait()
-			del self.mdProcess
-
+    def __clean__(self):
+        """
+        资源释放处理
+        """
+        attrName = '_%s__%s' % (self.__class__.__name__, 'mdWorker')
+        if attrName in self.__dict__.keys():
+            self.__mdWorker.exit()
+            del self.__mdWorker
 
 
-	def __init__(self,frontAddress,brokerID,userID,password,instrumentIDList):
-		"""
-		1.创建ctp转换器进程
-		2.创建和ctp通讯进程的通讯管道
-		3.测试ctp连接是否正常
-		参数:
-		frontAddress   ctp服务器地址
-		brokerID   代理商Id
-		userID   用户Id
-		password   密码
-		instrumentIDList   需要订阅的品种的Id列表
-		"""
-		# 创建临时工作目录
-		self.workdir = tempfile.mkdtemp()
-
-		# 为ctp md转换器分配通讯管道地址
-		self.pushbackPipe = mallocIpcAddress()
-		self.publishPipe = mallocIpcAddress()
-
-		# 生成md命令需要的临时配置文件(描述品种ID列表)
-		self.tempConfigFile = tempfile.mktemp(suffix='.json')
-		instrumentIDListJson = json.dumps(instrumentIDList)
-		with open(self.tempConfigFile, 'w') as f:
-			f.write(instrumentIDListJson.encode('utf-8'))
-
-		# 创建接受行情数据的管道
-		context = zmq.Context()
-		self.context = context
-		socket = context.socket(zmq.SUB)
-		socket.connect(self.publishPipe)
-		socket.setsockopt(zmq.SUBSCRIBE, '');
-		self.reader = socket
-
-		# 构造调用命令
-		commandLine = ['md',
-		'--FrontAddress',frontAddress,
-		'--BrokerID',brokerID,
-		'--UserID',userID,
-		'--Password', password,
-		'--PushbackPipe', self.pushbackPipe,
-		'--PublishPipe', self.publishPipe,
-		'--InstrumentIDConfigFile',self.tempConfigFile,
-		'--loyalty'
-		]
-
-		# 创建转换器子进程
-		fileOutput = os.path.join(self.workdir,'md.log')
-		traderStdout = open(fileOutput, 'w')
-		#self.mdProcess = subprocess.Popen(commandLine,stdout=traderStdout
-		self.mdProcess = subprocess.Popen(commandLine,stdout=traderStdout,cwd=self.workdir)
-
-		# 检查ctp通道是否建立，如果失败抛出异常
-		if not self.__testChannel():
-			self.__delTraderProcess()
-			raise Exception(u'无法建立ctp连接,具体错误请查看ctp转换器的日志信息')
+    def __enter__(self):
+        """ 让Md可以使用with语句 """
+        return self
 
 
-	def __enter__(self):
-		""" 让Md可以使用with语句 """
-		#print '__enter__():被调用'
-		return self
+    def __exit__(self, type, value, tb):
+        """ 让Md可以使用with语句 """
+        pass
 
 
-	def __exit__(self, type, value, tb):
-		""" 让Md可以使用with语句 """
-		#print '__exit__():被调用',type,value,tb
-		pass
+    def __del__(self):
+        """
+        对象移除过程,结束md转换器进程
+        """
+        self.__clean__()
 
 
-	def __del__(self):
-		"""
-		对象移出过程
-		1.结束ctp转换器进程
-		"""
-		self.__delTraderProcess()
+    def bind(self,callbackName,funcToCall):
+        """转调回调链管理器"""
+        return self.__callbackManager.bind(callbackName,funcToCall)
 
 
-	def readMarketData(self,timeout=1):
-		"""
-		读取行情数据
-		参数
-		timeout 如果当前没有消息的等待时间(毫秒)
-		"""
-		reader = self.reader
-		poller = zmq.Poller()
-		poller.register(reader, zmq.POLLIN)
-		sockets = dict(poller.poll(timeout))
-		if reader in sockets :
-			result = reader.recv_multipart()
-			# TODO 这里假设了result只有一个元素,最好是检查一下
-			if len(result) == 1 and result[0] != "":
-				resultDict = json.loads(result[0])
-				marketData = CThostFtdcDepthMarketDataField(**resultDict)
-				return marketData
-			else:
-				raise Exception(u'接收到不正确的消息格式')
-		else:
-			return None
+    def unbind(self,bindId):
+        """转调回调管理器"""
+        return self.__callbackManager.unbind(bindId)
+
+
+    def getConverterPid(self):
+        """
+        获取转换器的进程标识
+        """
+        return self.__mdConverter.getPid()
+
+
+    def requestMethod(self,requestApiName,instrumentIDList):
+        """
+        通用请求方法,提供给SubscribeMarketData和UnSubscribeMarketData调用
+        """
+        timeout = 1000
+        request = self.__mdConverter.request
+
+        # 准备调用参数
+        reqInfo = packageReqInfo(requestApiName,instrumentIDList)
+
+        # 发送消息
+        requestMessage = MdRequestMessage()
+        requestMessage.header = 'REQUEST'
+        requestMessage.apiName = requestApiName
+        requestMessage.reqInfo = json.dumps(reqInfo)
+        requestMessage.send(request)
+
+        # 等待转换器响应
+        poller = zmq.Poller()
+        poller.register(request, zmq.POLLIN)
+        sockets = dict(poller.poll(timeout))
+        if not request in sockets:
+            return ResponseTimeOut[:-1]
+
+        # 读取转换器响应,并返回处理结果
+        responseMessage = MdResponseMessage()
+        responseMessage.recv(request)
+        errorInfo = json.loads(responseMessage.errorInfo)
+        return errorInfo['ErrorID'], errorInfo['ErrorMsg']
+
+
+    def SubscribeMarketData(self,instrumentIDList):
+        """
+        订阅行情
+        """
+        requestApiName = 'SubscribeMarketData'
+        return self.requestMethod(requestApiName,instrumentIDList)
+
+
+    def UnSubscribeMarketData(self,instrumentIDList):
+        """
+        取消行情订阅
+        """
+        requestApiName = 'UnSubscribeMarketData'
+        return self.requestMethod(requestApiName,instrumentIDList)
 

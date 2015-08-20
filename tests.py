@@ -12,6 +12,7 @@ import CTPStruct as struct
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import CTPCallback as callback
+import inspect
 
 
 frontAddress = None
@@ -61,8 +62,8 @@ def test_trader_process_create_and_clean():
     assert pid not in [child.pid for child in process.children()]
 
 
-@attr('test_trader_bind_callback')
-def test_trader_bind_callback():
+@attr('test_bind_callback')
+def test_bind_callback():
     """
     测试捆绑回调函数
     """
@@ -94,8 +95,8 @@ def test_trader_bind_callback():
     assert len(flag) == 4
 
 
-@attr('test_communicate_working_thread')
-def test_communicate_working_thread():
+@attr('test_communicate_working_trader_thread')
+def test_communicate_working_trader_thread():
     """
     测试和监听进程进行通讯
     """
@@ -136,19 +137,22 @@ def test_qry_trading_account():
     trader = Trader(frontAddress, brokerID, userID, password)
 
     # 定义测试标志
-    flag = []
-
+    f1 = []
+    f2 = []
     # 定义回调函数,并将其绑定
     def OnRspQryTradingAccount1(RequestID,RspInfo,Data,IsLast):
         #print 'OnRspQryTradingAccount1 is called'
         #print kargs.keys()
-        flag.append(1)
+        f1.append(1)
     trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount1)
 
     def OnRspQryTradingAccount2(**kargs):
         #print 'OnRspQryTradingAccount2 is called'
         #print kargs.keys()
-        flag.append(1)
+        if 'ResponseMethod' in kargs.keys():
+            f2.append(1)
+        f1.append(1)
+
     trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount2)
 
     # 发送一个请求并等待回调函数被调用
@@ -158,11 +162,12 @@ def test_qry_trading_account():
 
     # 等待回调函数被调用
     i = 0
-    while len(flag) < 2:
+    while len(f1) < 2:
         sleep(.01)
         i += 1
         if i > 300 :
             raise Exception(u'等待回调超时...')
+    assert len(f2) > 0
 
 
 @attr('test_subcribe_depth_market_data')
@@ -190,11 +195,27 @@ def test_subcribe_depth_market_data():
     md.bind(callback.OnRspSubMarketData, OnRspSubMarketData)
     md.bind(callback.OnRtnDepthMarketData, OnRtnDepthMarketData)
     md.SubscribeMarketData([getDefaultInstrumentID()])
-    sleep(2)
+    sleep(1)
 
     print 'len(f1) =', len(f1)
     assert len(f1) > 0
-    print 'len(f2) =', len(f2)
     assert len(f2) > 0
 
+@attr('test_md_process_create_and_clean')
+def test_md_process_create_and_clean():
+    """
+    测试Md对象的创建和清理
+    """
+    global frontAddress, mdFrontAddress, brokerID, userID, password
+    process = psutil.Process()
 
+    # 创建后可以找到一个trader进程
+    md = Md(mdFrontAddress, brokerID, userID, password)
+    pid = md.getConverterPid()
+    assert pid and pid != 0
+    assert pid in [child.pid for child in process.children()]
+
+    # 将变量指向None迫使垃圾回收,确认进程被清理了
+    md = None
+    sleep(1)
+    assert pid not in [child.pid for child in process.children()]

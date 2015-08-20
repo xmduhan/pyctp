@@ -4,7 +4,8 @@
 import tempfile
 import threading
 import uuid
-
+import inspect
+import copy
 
 def packageReqInfo(apiName, data):
     """
@@ -98,7 +99,17 @@ class CallbackManager(object):
             for callbackUuid in self.__callbackDict[callbackName]:
                 funcToCall = self.__callbackUuidDict[callbackUuid]['funcToCall']
                 try:
-                    funcToCall(**args)
+                    argsToCall = copy.copy(args)
+
+                    # 如果方法的参数格式是**kwargs,可以把响应函数的名称加到参数列表中
+                    argsInfo = inspect.getargs(funcToCall.func_code)
+                    c1 = len(argsInfo.args) == 0
+                    c2 = argsInfo.varargs == None
+                    c3 = argsInfo.keywords != None
+                    if c1 and c2 and c3:
+                        argsToCall['ResponseMethod'] = callbackName
+
+                    funcToCall(**argsToCall)
                 except Exception as e:
                     print e
         finally:

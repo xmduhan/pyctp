@@ -258,7 +258,7 @@ class Trader :
         """
 
         flag = []
-        def OnRspQryTradingAccount(**kargs):
+        def OnRspQryTradingAccount(**kwargs):
             flag.append(1)
 
         bindId = self.bind(callback.OnRspQryTradingAccount,OnRspQryTradingAccount)

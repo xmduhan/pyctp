@@ -34,7 +34,7 @@
 #%% 目标调用方式
 from pyctp import Trader,Md,struct,callback
 
-def OnRspQryTradingAccount(**kargs):
+def OnRspQryTradingAccount(**kwargs):
     pass
 
 trader = Trader(...)

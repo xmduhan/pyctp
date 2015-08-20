@@ -69,8 +69,8 @@ def test_bind_callback():
     """
     flag = []
 
-    def OnRspQryTradingAccount(**kargs):
-        flag = kargs['flag']
+    def OnRspQryTradingAccount(**kwargs):
+        flag = kwargs['flag']
         flag.append(1)
 
     callbackManager = CallbackManager()
@@ -142,14 +142,14 @@ def test_qry_trading_account():
     # 定义回调函数,并将其绑定
     def OnRspQryTradingAccount1(RequestID,RspInfo,Data,IsLast):
         #print 'OnRspQryTradingAccount1 is called'
-        #print kargs.keys()
+        #print kwargs.keys()
         f1.append(1)
     trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount1)
 
-    def OnRspQryTradingAccount2(**kargs):
+    def OnRspQryTradingAccount2(**kwargs):
         #print 'OnRspQryTradingAccount2 is called'
-        #print kargs.keys()
-        if 'ResponseMethod' in kargs.keys():
+        #print kwargs.keys()
+        if 'ResponseMethod' in kwargs.keys():
             f2.append(1)
         f1.append(1)
 

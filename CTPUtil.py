@@ -45,7 +45,7 @@ class CallbackManager(object):
         callbackName  回调函数名称，具体可用项在pyctp.callback模块中定义
         funcToCall  需要绑定的回调函数，可以是函数也可以是实例方法
         回调方法必须定义成以下结构:
-        def funcToCall(**kargs)
+        def funcToCall(**kwargs)
         返回值:
         如果绑定成功方法返回一个bindId,这个id可以用于解除绑定(unbind)时使用
         """

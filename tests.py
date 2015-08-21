@@ -277,30 +277,57 @@ def getInsertOrderField(direction,action,volume=1):
     return inputOrderField
 
 
+
+
 @attr('test_open_and_close_position')
 def test_open_and_close_position():
     """
     测试开仓和平仓
     """
+    def settlement_info_confirm():
+        """
+        交易结果确认
+        """
+        result = []
+        def OnRspSettlementInfoConfirm(**kwargs):
+            print 'OnRspSettlementInfoConfirm() is called ...'
+            result.append(kwargs)
+
+        trader.bind(callback.OnRspSettlementInfoConfirm,OnRspSettlementInfoConfirm)
+        data = struct.CThostFtdcSettlementInfoConfirmField()
+        data.BrokerID = brokerID
+        data.InvestorID = userID
+        data.ConfirmDate = ''
+        data.ConfirmTime = ''
+        trader.ReqSettlementInfoConfirm(data)
+        while len(result) == 0: sleep(.01)
+        print result
+
+    sequence = []
+
     onRspOrderInsertResult = []
     def OnRspOrderInsert(**kwargs):
         print 'OnRspOrderInsert() is called ...'
         onRspOrderInsertResult.append(kwargs)
+        sequence.append('onRspOrderInsert')
 
     onErrRtnOrderInsertResult = []
     def OnErrRtnOrderInsert(**kwargs):
         print 'OnErrRtnOrderInsert() is called ...'
         onErrRtnOrderInsertResult.append(kwargs)
+        sequence.append('onErrRtnOrderInsert')
 
     onRtnOrderResult = []
     def OnRtnOrder(**kwargs):
         print 'OnRtnOrder() is called ...'
         onRtnOrderResult.append(kwargs)
+        sequence.append('onRtnOrder')
 
     OnRtnTradeResult = []
     def OnRtnTrade(**kwargs):
         print 'OnRtnTrade() is called ...'
         OnRtnTradeResult.append(kwargs)
+        sequence.append('OnRtnTrade')
 
     global frontAddress, mdFrontAddress, brokerID, userID, password
     trader = Trader(frontAddress, brokerID, userID, password)
@@ -308,6 +335,9 @@ def test_open_and_close_position():
     trader.bind(callback.OnErrRtnOrderInsert,OnErrRtnOrderInsert)
     trader.bind(callback.OnRtnOrder,OnRtnOrder)
     trader.bind(callback.OnRtnTrade,OnRtnTrade)
+
+    # 交易结果确认
+    settlement_info_confirm()
 
     # 进行开仓测试
     data = getInsertOrderField('buy','open')
@@ -332,4 +362,5 @@ def test_open_and_close_position():
     assert len(onRtnOrderResult) > 0
     assert len(OnRtnTradeResult) == 1
 
+    print sequence
 

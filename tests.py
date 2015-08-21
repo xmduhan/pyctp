@@ -40,6 +40,23 @@ def setup():
     assert password, u'必须定义环境变量:CTP_PASSWORD'
 
 
+def getDefaultInstrumentID(months=1):
+    """
+    获取一个可用的交易品种ID
+    """
+    return datetime.strftime(datetime.now() + relativedelta(months=months),"IF%y%m")
+
+
+orderRefSeq = 0
+def getOrderRef():
+    '''
+    获取OrderRef序列值
+    '''
+    global orderRefSeq
+    orderRefSeq += 1
+    return ('%12d' % orderRefSeq).replace(' ','0') # '000000000001'
+
+
 @attr('test_trader_process_create_and_clean')
 def test_trader_process_create_and_clean():
     """
@@ -175,8 +192,6 @@ def test_subcribe_depth_market_data():
     """
     测试订阅行情
     """
-    def getDefaultInstrumentID(months=1):
-        return datetime.strftime(datetime.now() + relativedelta(months=months),"IF%y%m")
 
     f1 = []
     def OnRspSubMarketData(**kwargs):
@@ -219,3 +234,102 @@ def test_md_process_create_and_clean():
     md = None
     sleep(1)
     assert pid not in [child.pid for child in process.children()]
+
+
+def getInsertOrderField(direction,action,volume=1):
+    """
+    获取一个有效的建单数据格式
+    """
+    inputOrderField = struct.CThostFtdcInputOrderField()
+    inputOrderField.BrokerID = brokerID
+    inputOrderField.InvestorID = userID
+    inputOrderField.InstrumentID = getDefaultInstrumentID()
+    inputOrderField.OrderRef =  getOrderRef() #
+    inputOrderField.UserID = userID
+    inputOrderField.OrderPriceType = '1'     # 任意价
+
+    # inputOrderField.Direction = '0'          # 买
+    # inputOrderField.CombOffsetFlag = '0'     # 开仓
+    if action == 'open':
+        inputOrderField.CombOffsetFlag = '0'
+        inputOrderField.Direction = {'buy': '0', 'sell': '1'}[direction]
+    elif action == 'close':
+        inputOrderField.CombOffsetFlag = '1'
+        inputOrderField.Direction = {'buy': '1', 'sell': '0'}[direction]
+    else:
+        raise Exception(u'未知的操作方向')
+
+    inputOrderField.CombHedgeFlag = '1'      # 投机
+    inputOrderField.LimitPrice = 0           # 限价 0表不限制
+    inputOrderField.VolumeTotalOriginal = volume  # 手数
+    inputOrderField.TimeCondition = '1'      # 立即完成否则撤消
+    inputOrderField.GTDDate = ''
+    inputOrderField.VolumeCondition = '1'    # 成交类型  '1' 任何数量  '2' 最小数量 '3'全部数量
+    inputOrderField.MinVolume = volume       # 最小数量
+    inputOrderField.ContingentCondition = '1' # 触发类型 '1' 立即否则撤消
+    inputOrderField.StopPrice = 0             # 止损价
+    inputOrderField.ForceCloseReason = '0'    # 强平标识 '0'非强平
+    inputOrderField.IsAutoSuspend = 0         # 自动挂起标识
+    inputOrderField.BusinessUnit = ''         # 业务单元
+    inputOrderField.RequestID = 1
+    inputOrderField.UserForceClose = 0        # 用户强平标识
+    inputOrderField.IsSwapOrder = 0           # 互换单标识
+    return inputOrderField
+
+
+@attr('test_open_and_close_position')
+def test_open_and_close_position():
+    """
+    测试开仓和平仓
+    """
+    onRspOrderInsertResult = []
+    def OnRspOrderInsert(**kwargs):
+        print 'OnRspOrderInsert() is called ...'
+        onRspOrderInsertResult.append(kwargs)
+
+    onErrRtnOrderInsertResult = []
+    def OnErrRtnOrderInsert(**kwargs):
+        print 'OnErrRtnOrderInsert() is called ...'
+        onErrRtnOrderInsertResult.append(kwargs)
+
+    onRtnOrderResult = []
+    def OnRtnOrder(**kwargs):
+        print 'OnRtnOrder() is called ...'
+        onRtnOrderResult.append(kwargs)
+
+    OnRtnTradeResult = []
+    def OnRtnTrade(**kwargs):
+        print 'OnRtnTrade() is called ...'
+        OnRtnTradeResult.append(kwargs)
+
+    global frontAddress, mdFrontAddress, brokerID, userID, password
+    trader = Trader(frontAddress, brokerID, userID, password)
+    trader.bind(callback.OnRspOrderInsert,OnRspOrderInsert)
+    trader.bind(callback.OnErrRtnOrderInsert,OnErrRtnOrderInsert)
+    trader.bind(callback.OnRtnOrder,OnRtnOrder)
+    trader.bind(callback.OnRtnTrade,OnRtnTrade)
+
+    # 进行开仓测试
+    data = getInsertOrderField('buy','open')
+    trader.ReqOrderInsert(data)
+    sleep(1)
+    assert len(onRspOrderInsertResult) == 0
+    assert len(onErrRtnOrderInsertResult) == 0
+    assert len(onRtnOrderResult) > 0
+    assert len(OnRtnTradeResult) == 1
+    # 清理数据
+    onRspOrderInsertResult = []
+    onErrRtnOrderInsertResult = []
+    onRtnOrderResult = []
+    OnRtnTradeResult = []
+
+    # 进程平仓测试
+    data = getInsertOrderField('buy','close')
+    trader.ReqOrderInsert(data)
+    sleep(1)
+    assert len(onRspOrderInsertResult) == 0
+    assert len(onErrRtnOrderInsertResult) == 0
+    assert len(onRtnOrderResult) > 0
+    assert len(OnRtnTradeResult) == 1
+
+

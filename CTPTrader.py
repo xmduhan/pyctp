@@ -121,24 +121,44 @@ class TraderWorker:
                         self.response.send_multipart([messageList[0],toSendBack])
                     continue
 
-                # 循环读取消息进程回调处理
-                for socket in sockets:
+                # 处理response管道中的数据
+                # TODO: 这里优先处理response,只要response队列中有数据,就不出里publish
+                # 这主要是由于OnRtnTrade返回信息中没有带RequestID,导致这个消息通过
+                # publish管道去返回，这就可能造成OnRtnOrder和OnRtnTrade消息可能出现顺序
+                # 颠倒的问题，当然这不是彻底的解决方法,最好是能在转换器中将OnRtnTrade和
+                # 其原始调用的RequestID关联起来，并通过让OnRtnTrade通过response管道返回,
+                # 这样才能保证消息的绝对序列化
+                if self.__traderConverter.response in sockets:
+                    socket = self.__traderConverter.response
                     # 读取消息
                     messageList = socket.recv_multipart()
                     # 根据不同的消息类型提取回调名称和参数信息
                     if messageList[0] == 'RESPONSE':
                         apiName, respInfoJson = messageList[2:4]
-                    elif messageList[0] == 'PUBLISH':
+                    else:
+                        print u'接收到1条未知消息...'
+                        continue
+                    respInfo = json.loads(respInfoJson)
+                    parameters = respInfo['Parameters']
+                    # 调用对应的回调函数
+                    self.__callbackManager.callback(apiName,parameters)
+                    continue
+
+                if self.__traderConverter.publish in sockets:
+                    socket = self.__traderConverter.publish
+                    # 读取消息
+                    messageList = socket.recv_multipart()
+                    # 根据不同的消息类型提取回调名称和参数信息
+                    if messageList[0] == 'PUBLISH':
                         apiName, respInfoJson = messageList[1:3]
                     else:
                         print u'接收到1条未知消息...'
                         continue
-
                     respInfo = json.loads(respInfoJson)
                     parameters = respInfo['Parameters']
-
                     # 调用对应的回调函数
                     self.__callbackManager.callback(apiName,parameters)
+                    continue
 
             except Exception as e:
                 print e

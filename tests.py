@@ -363,4 +363,6 @@ def test_open_and_close_position():
     assert len(OnRtnTradeResult) == 1
 
     print sequence
+    assert sequence[3] == 'OnRtnTrade'
+    assert sequence[7] == 'OnRtnTrade'
 

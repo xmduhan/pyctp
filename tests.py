@@ -11,9 +11,7 @@ import CTPCallback as callback
 import CTPStruct as struct
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-import CTPCallback as callback
-import inspect
-
+from nose.tools import nottest
 
 frontAddress = None
 mdFrontAddress = None
@@ -277,9 +275,8 @@ def getInsertOrderField(direction,action,volume=1):
     return inputOrderField
 
 
-
-
 @attr('test_open_and_close_position')
+@nottest
 def test_open_and_close_position():
     """
     测试开仓和平仓
@@ -306,24 +303,28 @@ def test_open_and_close_position():
     sequence = []
 
     onRspOrderInsertResult = []
+
     def OnRspOrderInsert(**kwargs):
         print 'OnRspOrderInsert() is called ...'
         onRspOrderInsertResult.append(kwargs)
         sequence.append('onRspOrderInsert')
 
     onErrRtnOrderInsertResult = []
+
     def OnErrRtnOrderInsert(**kwargs):
         print 'OnErrRtnOrderInsert() is called ...'
         onErrRtnOrderInsertResult.append(kwargs)
         sequence.append('onErrRtnOrderInsert')
 
     onRtnOrderResult = []
+
     def OnRtnOrder(**kwargs):
         print 'OnRtnOrder() is called ...'
         onRtnOrderResult.append(kwargs)
         sequence.append('onRtnOrder')
 
     OnRtnTradeResult = []
+
     def OnRtnTrade(**kwargs):
         print 'OnRtnTrade() is called ...'
         OnRtnTradeResult.append(kwargs)
@@ -365,4 +366,5 @@ def test_open_and_close_position():
     print sequence
     assert sequence[3] == 'OnRtnTrade'
     assert sequence[7] == 'OnRtnTrade'
+
 

@@ -260,7 +260,7 @@ class Md:
 
 
 
-    def __init__(self,frontAddress,brokerID,userID,password):
+    def __init__(self,frontAddress,brokerID,userID,password,timeout=10):
         """
         1.创建ctp转换器进程
         2.创建和ctp通讯进程的通讯管道
@@ -271,6 +271,9 @@ class Md:
         userID   用户Id
         password   密码
         """
+        # 设置等待超时时间
+        self.timeoutMillisecond = 1000 * timeout
+
         # 创建md转换器
         self.__mdConverter = MdConverter(
             frontAddress,brokerID,userID,password
@@ -339,7 +342,7 @@ class Md:
         """
         通用请求方法,提供给SubscribeMarketData和UnSubscribeMarketData调用
         """
-        timeout = 3000
+        timeout = self.timeoutMillisecond
         request = self.__mdConverter.request
 
         # 准备调用参数

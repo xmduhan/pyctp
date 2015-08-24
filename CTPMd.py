@@ -14,6 +14,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import CTPCallback as callback
 from time import sleep
+from ErrorResult import *
 
 context = zmq.Context()
 

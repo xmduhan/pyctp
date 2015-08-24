@@ -339,7 +339,7 @@ class Md:
         """
         通用请求方法,提供给SubscribeMarketData和UnSubscribeMarketData调用
         """
-        timeout = 1000
+        timeout = 3000
         request = self.__mdConverter.request
 
         # 准备调用参数

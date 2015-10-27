@@ -42,17 +42,19 @@ def getDefaultInstrumentID(months=1):
     """
     获取一个可用的交易品种ID
     """
-    return datetime.strftime(datetime.now() + relativedelta(months=months),"IF%y%m")
+    return datetime.strftime(datetime.now() + relativedelta(months=months), "IF%y%m")
 
 
 orderRefSeq = 0
+
+
 def getOrderRef():
     '''
     获取OrderRef序列值
     '''
     global orderRefSeq
     orderRefSeq += 1
-    return ('%12d' % orderRefSeq).replace(' ','0') # '000000000001'
+    return ('%12d' % orderRefSeq).replace(' ', '0')  # '000000000001'
 
 
 @attr('test_trader_process_create_and_clean')
@@ -154,16 +156,17 @@ def test_qry_trading_account():
     # 定义测试标志
     f1 = []
     f2 = []
+
     # 定义回调函数,并将其绑定
-    def OnRspQryTradingAccount1(RequestID,RspInfo,Data,IsLast):
-        #print 'OnRspQryTradingAccount1 is called'
-        #print kwargs.keys()
+    def OnRspQryTradingAccount1(RequestID, RspInfo, Data, IsLast):
+        # print 'OnRspQryTradingAccount1 is called'
+        # print kwargs.keys()
         f1.append(1)
     trader.bind(callback.OnRspQryTradingAccount, OnRspQryTradingAccount1)
 
     def OnRspQryTradingAccount2(**kwargs):
-        #print 'OnRspQryTradingAccount2 is called'
-        #print kwargs.keys()
+        # print 'OnRspQryTradingAccount2 is called'
+        # print kwargs.keys()
         if 'ResponseMethod' in kwargs.keys():
             f2.append(1)
         f1.append(1)
@@ -180,7 +183,7 @@ def test_qry_trading_account():
     while len(f1) < 2:
         sleep(.01)
         i += 1
-        if i > 300 :
+        if i > 300:
             raise Exception(u'等待回调超时...')
     assert len(f2) > 0
 
@@ -192,11 +195,13 @@ def test_subcribe_depth_market_data():
     """
 
     f1 = []
+
     def OnRspSubMarketData(**kwargs):
         print 'OnRspSubMarketData() is called'
         f1.append(1)
 
     f2 = []
+
     def OnRtnDepthMarketData(**kwargs):
         print 'OnRtnDepthMarketData() is called'
         f2.append(1)
@@ -213,6 +218,7 @@ def test_subcribe_depth_market_data():
     print 'len(f1) =', len(f1)
     assert len(f1) > 0
     assert len(f2) > 0
+
 
 @attr('test_md_process_create_and_clean')
 def test_md_process_create_and_clean():
@@ -234,7 +240,7 @@ def test_md_process_create_and_clean():
     assert pid not in [child.pid for child in process.children()]
 
 
-def getInsertOrderField(direction,action,volume=1):
+def getInsertOrderField(direction, action, volume=1):
     """
     获取一个有效的建单数据格式
     """
@@ -242,7 +248,7 @@ def getInsertOrderField(direction,action,volume=1):
     inputOrderField.BrokerID = brokerID
     inputOrderField.InvestorID = userID
     inputOrderField.InstrumentID = getDefaultInstrumentID()
-    inputOrderField.OrderRef =  getOrderRef() #
+    inputOrderField.OrderRef = getOrderRef()
     inputOrderField.UserID = userID
     inputOrderField.OrderPriceType = '1'     # 任意价
 
@@ -264,7 +270,7 @@ def getInsertOrderField(direction,action,volume=1):
     inputOrderField.GTDDate = ''
     inputOrderField.VolumeCondition = '1'    # 成交类型  '1' 任何数量  '2' 最小数量 '3'全部数量
     inputOrderField.MinVolume = volume       # 最小数量
-    inputOrderField.ContingentCondition = '1' # 触发类型 '1' 立即否则撤消
+    inputOrderField.ContingentCondition = '1'  # 触发类型 '1' 立即否则撤消
     inputOrderField.StopPrice = 0             # 止损价
     inputOrderField.ForceCloseReason = '0'    # 强平标识 '0'非强平
     inputOrderField.IsAutoSuspend = 0         # 自动挂起标识
@@ -286,18 +292,20 @@ def test_open_and_close_position():
         交易结果确认
         """
         result = []
+
         def OnRspSettlementInfoConfirm(**kwargs):
             print 'OnRspSettlementInfoConfirm() is called ...'
             result.append(kwargs)
 
-        trader.bind(callback.OnRspSettlementInfoConfirm,OnRspSettlementInfoConfirm)
+        trader.bind(callback.OnRspSettlementInfoConfirm, OnRspSettlementInfoConfirm)
         data = struct.CThostFtdcSettlementInfoConfirmField()
         data.BrokerID = brokerID
         data.InvestorID = userID
         data.ConfirmDate = ''
         data.ConfirmTime = ''
         trader.ReqSettlementInfoConfirm(data)
-        while len(result) == 0: sleep(.01)
+        while len(result) == 0:
+            sleep(.01)
         print result
 
     sequence = []
@@ -332,16 +340,16 @@ def test_open_and_close_position():
 
     global frontAddress, mdFrontAddress, brokerID, userID, password
     trader = Trader(frontAddress, brokerID, userID, password)
-    trader.bind(callback.OnRspOrderInsert,OnRspOrderInsert)
-    trader.bind(callback.OnErrRtnOrderInsert,OnErrRtnOrderInsert)
-    trader.bind(callback.OnRtnOrder,OnRtnOrder)
-    trader.bind(callback.OnRtnTrade,OnRtnTrade)
+    trader.bind(callback.OnRspOrderInsert, OnRspOrderInsert)
+    trader.bind(callback.OnErrRtnOrderInsert, OnErrRtnOrderInsert)
+    trader.bind(callback.OnRtnOrder, OnRtnOrder)
+    trader.bind(callback.OnRtnTrade, OnRtnTrade)
 
     # 交易结果确认
     settlement_info_confirm()
 
     # 进行开仓测试
-    data = getInsertOrderField('buy','open')
+    data = getInsertOrderField('buy', 'open')
     trader.ReqOrderInsert(data)
     sleep(1)
     assert len(onRspOrderInsertResult) == 0
@@ -355,7 +363,7 @@ def test_open_and_close_position():
     OnRtnTradeResult = []
 
     # 进程平仓测试
-    data = getInsertOrderField('buy','close')
+    data = getInsertOrderField('buy', 'close')
     trader.ReqOrderInsert(data)
     sleep(1)
     assert len(onRspOrderInsertResult) == 0
@@ -366,5 +374,3 @@ def test_open_and_close_position():
     print sequence
     assert sequence[3] == 'OnRtnTrade'
     assert sequence[7] == 'OnRtnTrade'
-
-

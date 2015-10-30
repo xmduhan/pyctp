@@ -343,6 +343,12 @@ class Trader :
             self.__clean__()
             raise Exception(u'无法建立ctp连接,请查看ctp转换器的日志')
 
+    def getConverterWorkdir(self):
+        """
+        读取转化器的工作目录
+        主要方便在调试的时候可以查看转换器的日志
+        """
+        return self.__traderConverter.workdir
 
     def __enter__(self):
         """ 让Trader可以使用with语句 """
